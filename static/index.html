@@ -26,8 +26,9 @@
       </div>
       <div class="col-md-2">
         <label for="shelf" class="form-label">Shelf</label>
-        <input list="shelves" class="form-control" id="shelf" required>
-        <datalist id="shelves"></datalist>
+        <select class="form-select" id="shelf" required>
+          <option value="" disabled selected>Select shelf</option>
+        </select>
       </div>
       <div class="col-12">
         <button type="submit" class="btn btn-primary">Add Book</button>

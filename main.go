@@ -25,6 +25,19 @@ type Book struct {
 
 var db *sql.DB
 
+// Predefined allowed shelves
+var allowedShelves = []string{"Read", "To-Read"}
+
+// isValidShelf returns true if s is one of the allowedShelves
+func isValidShelf(s string) bool {
+   for _, sh := range allowedShelves {
+       if sh == s {
+           return true
+       }
+   }
+   return false
+}
+
 // ExecSQL executes a SQL statement and logs the query and its arguments.
 func ExecSQL(query string, args ...interface{}) (sql.Result, error) {
    log.Printf("[SQL Exec] %s; args: %v", query, args)
@@ -126,8 +139,14 @@ func booksHandler(w http.ResponseWriter, r *http.Request) {
            http.Error(w, "Invalid JSON", http.StatusBadRequest)
            return
        }
-       if strings.TrimSpace(b.Title) == "" || strings.TrimSpace(b.Shelf) == "" {
+       b.Title = strings.TrimSpace(b.Title)
+       b.Shelf = strings.TrimSpace(b.Shelf)
+       if b.Title == "" || b.Shelf == "" {
            http.Error(w, "Missing title or shelf", http.StatusBadRequest)
+           return
+       }
+       if !isValidShelf(b.Shelf) {
+           http.Error(w, "Invalid shelf", http.StatusBadRequest)
            return
        }
        res, err := ExecSQL("INSERT INTO books (title, author, shelf) VALUES (?, ?, ?)", b.Title, b.Author, b.Shelf)
@@ -173,8 +192,14 @@ func bookHandler(w http.ResponseWriter, r *http.Request) {
            http.Error(w, "Invalid JSON", http.StatusBadRequest)
            return
        }
-       if strings.TrimSpace(b.Title) == "" || strings.TrimSpace(b.Shelf) == "" {
+       b.Title = strings.TrimSpace(b.Title)
+       b.Shelf = strings.TrimSpace(b.Shelf)
+       if b.Title == "" || b.Shelf == "" {
            http.Error(w, "Missing title or shelf", http.StatusBadRequest)
+           return
+       }
+       if !isValidShelf(b.Shelf) {
+           http.Error(w, "Invalid shelf", http.StatusBadRequest)
            return
        }
        _, err := ExecSQL("UPDATE books SET title = ?, author = ?, shelf = ? WHERE id = ?", b.Title, b.Author, b.Shelf, id)
@@ -201,23 +226,8 @@ func shelvesHandler(w http.ResponseWriter, r *http.Request) {
        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
        return
    }
-   rows, err := QuerySQL("SELECT DISTINCT shelf FROM books")
-   if err != nil {
-       http.Error(w, "Database error", http.StatusInternalServerError)
-       return
-   }
-   defer rows.Close()
-
-   shelves := []string{}
-   for rows.Next() {
-       var s string
-       if err := rows.Scan(&s); err != nil {
-           http.Error(w, "Database error", http.StatusInternalServerError)
-           return
-       }
-       shelves = append(shelves, s)
-   }
-   writeJSON(w, shelves)
+   // Return predefined shelves
+   writeJSON(w, allowedShelves)
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {

@@ -3,7 +3,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const titleInput = document.getElementById('title');
   const authorInput = document.getElementById('author');
   const shelfInput = document.getElementById('shelf');
-  const shelvesDatalist = document.getElementById('shelves');
   const booksContainer = document.getElementById('books-container');
   let shelves = [];
 
@@ -17,11 +16,13 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function populateShelvesDatalist() {
-    shelvesDatalist.innerHTML = '';
+    // Populate the add-book shelf select with predefined options
+    shelfInput.innerHTML = '<option value="" disabled selected>Select shelf</option>';
     shelves.forEach(shelf => {
       const option = document.createElement('option');
       option.value = shelf;
-      shelvesDatalist.appendChild(option);
+      option.textContent = shelf;
+      shelfInput.appendChild(option);
     });
   }
 
