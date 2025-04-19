@@ -25,6 +25,24 @@ type Book struct {
 
 var db *sql.DB
 
+// ExecSQL executes a SQL statement and logs the query and its arguments.
+func ExecSQL(query string, args ...interface{}) (sql.Result, error) {
+   log.Printf("[SQL Exec] %s; args: %v", query, args)
+   return db.Exec(query, args...)
+}
+
+// QuerySQL executes a SQL query that returns rows and logs the query and its arguments.
+func QuerySQL(query string, args ...interface{}) (*sql.Rows, error) {
+   log.Printf("[SQL Query] %s; args: %v", query, args)
+   return db.Query(query, args...)
+}
+
+// QueryRowSQL executes a SQL query expected to return at most one row and logs the query and its arguments.
+func QueryRowSQL(query string, args ...interface{}) *sql.Row {
+   log.Printf("[SQL QueryRow] %s; args: %v", query, args)
+   return db.QueryRow(query, args...)
+}
+
 func main() {
    log.SetOutput(os.Stdout)
 
@@ -78,14 +96,14 @@ func initDB() error {
        shelf TEXT NOT NULL,
        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
    );`
-   _, err := db.Exec(query)
+   _, err := ExecSQL(query)
    return err
 }
 
 func booksHandler(w http.ResponseWriter, r *http.Request) {
    switch r.Method {
    case http.MethodGet:
-       rows, err := db.Query("SELECT id, title, author, shelf FROM books")
+       rows, err := QuerySQL("SELECT id, title, author, shelf FROM books")
        if err != nil {
            http.Error(w, "Database error", http.StatusInternalServerError)
            return
@@ -112,7 +130,7 @@ func booksHandler(w http.ResponseWriter, r *http.Request) {
            http.Error(w, "Missing title or shelf", http.StatusBadRequest)
            return
        }
-       res, err := db.Exec("INSERT INTO books (title, author, shelf) VALUES (?, ?, ?)", b.Title, b.Author, b.Shelf)
+       res, err := ExecSQL("INSERT INTO books (title, author, shelf) VALUES (?, ?, ?)", b.Title, b.Author, b.Shelf)
        if err != nil {
            http.Error(w, "Database error", http.StatusInternalServerError)
            return
@@ -139,7 +157,7 @@ func bookHandler(w http.ResponseWriter, r *http.Request) {
    switch r.Method {
    case http.MethodGet:
        var b Book
-       err := db.QueryRow("SELECT id, title, author, shelf FROM books WHERE id = ?", id).
+       err := QueryRowSQL("SELECT id, title, author, shelf FROM books WHERE id = ?", id).
            Scan(&b.ID, &b.Title, &b.Author, &b.Shelf)
        if err == sql.ErrNoRows {
            http.Error(w, "Not found", http.StatusNotFound)
@@ -159,7 +177,7 @@ func bookHandler(w http.ResponseWriter, r *http.Request) {
            http.Error(w, "Missing title or shelf", http.StatusBadRequest)
            return
        }
-       _, err := db.Exec("UPDATE books SET title = ?, author = ?, shelf = ? WHERE id = ?", b.Title, b.Author, b.Shelf, id)
+       _, err := ExecSQL("UPDATE books SET title = ?, author = ?, shelf = ? WHERE id = ?", b.Title, b.Author, b.Shelf, id)
        if err != nil {
            http.Error(w, "Database error", http.StatusInternalServerError)
            return
@@ -167,7 +185,7 @@ func bookHandler(w http.ResponseWriter, r *http.Request) {
        b.ID = id
        writeJSON(w, b)
    case http.MethodDelete:
-       _, err := db.Exec("DELETE FROM books WHERE id = ?", id)
+       _, err := ExecSQL("DELETE FROM books WHERE id = ?", id)
        if err != nil {
            http.Error(w, "Database error", http.StatusInternalServerError)
            return
@@ -183,7 +201,7 @@ func shelvesHandler(w http.ResponseWriter, r *http.Request) {
        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
        return
    }
-   rows, err := db.Query("SELECT DISTINCT shelf FROM books")
+   rows, err := QuerySQL("SELECT DISTINCT shelf FROM books")
    if err != nil {
        http.Error(w, "Database error", http.StatusInternalServerError)
        return
