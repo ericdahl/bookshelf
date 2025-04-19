@@ -3,6 +3,8 @@ package main
 import (
    "database/sql"
    "encoding/json"
+   "flag"
+   "fmt"
    "log"
    "net/http"
    "os"
@@ -26,6 +28,21 @@ var db *sql.DB
 func main() {
    log.SetOutput(os.Stdout)
 
+   // Parse command-line flags
+   var port int
+   var help bool
+   flag.IntVar(&port, "port", 8080, "Port to listen on")
+   flag.BoolVar(&help, "help", false, "Show help")
+   flag.Usage = func() {
+       fmt.Fprintf(os.Stdout, "Usage: %s [options]\n", os.Args[0])
+       flag.PrintDefaults()
+   }
+   flag.Parse()
+   if help {
+       flag.Usage()
+       os.Exit(0)
+   }
+
    var err error
    db, err = sql.Open("sqlite3", "./books.db")
    if err != nil {
@@ -45,7 +62,7 @@ func main() {
    fs := http.FileServer(http.Dir("static"))
    mux.Handle("/", fs)
 
-   addr := ":8080"
+   addr := fmt.Sprintf(":%d", port)
    log.Printf("Server started at %s", addr)
    if err := http.ListenAndServe(addr, loggingMiddleware(mux)); err != nil {
        log.Fatalf("Server error: %v", err)
