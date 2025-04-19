@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const titleInput = document.getElementById('title');
   const authorInput = document.getElementById('author');
   const shelfInput = document.getElementById('shelf');
+  const ratingInput = document.getElementById('rating');
   const booksContainer = document.getElementById('books-container');
   let shelves = [];
 
@@ -59,7 +60,9 @@ document.addEventListener('DOMContentLoaded', function() {
         item.className = 'list-group-item d-flex justify-content-between align-items-center';
 
         const info = document.createElement('div');
-        info.innerHTML = '<strong>' + book.title + '</strong> by ' + (book.author || 'Unknown');
+        // Display book title, author, and rating
+        const ratingText = book.rating > 0 ? 'Rating: ' + book.rating : 'Unrated';
+        info.innerHTML = '<strong>' + book.title + '</strong> by ' + (book.author || 'Unknown') + ' - ' + ratingText;
         item.appendChild(info);
 
         const controls = document.createElement('div');
@@ -83,7 +86,8 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify({
               title: book.title,
               author: book.author,
-              shelf: select.value
+              shelf: select.value,
+              rating: book.rating
             })
           }).then(function() {
             init();
@@ -115,13 +119,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
   form.addEventListener('submit', function(e) {
     e.preventDefault();
+    // Gather form data including optional rating
     const data = {
       title: titleInput.value.trim(),
       author: authorInput.value.trim(),
       shelf: shelfInput.value.trim()
     };
+    const ratingVal = parseInt(ratingInput.value, 10);
+    data.rating = !isNaN(ratingVal) ? ratingVal : 0;
     if (!data.title || !data.shelf) {
       alert('Title and shelf are required');
+      return;
+    }
+    if (data.rating < 0 || data.rating > 10) {
+      alert('Rating must be between 1 and 10');
       return;
     }
     fetch('/api/books', {
