@@ -1,0 +1,33 @@
+# Binaries for local development
+bookshelf
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build directories
+bin/
+obj/
+
+# SQLite database files
+*.db
+
+# Go build artifacts
+*.test
+coverage.out
+
+# Dependency directories (remove the leading slash if you include this in subdirectories)
+vendor/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# macOS files
+.DS_Store
+
+# Environment files
+.env

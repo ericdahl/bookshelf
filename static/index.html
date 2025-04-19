@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Bookshelf</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/">My Bookshelf</a>
+  </div>
+</nav>
+<div class="container">
+  <div id="add-book-form" class="mb-5">
+    <h2>Add a Book</h2>
+    <form id="book-form" class="row g-3">
+      <div class="col-md-5">
+        <label for="title" class="form-label">Title</label>
+        <input type="text" class="form-control" id="title" required>
+      </div>
+      <div class="col-md-5">
+        <label for="author" class="form-label">Author</label>
+        <input type="text" class="form-control" id="author">
+      </div>
+      <div class="col-md-2">
+        <label for="shelf" class="form-label">Shelf</label>
+        <input list="shelves" class="form-control" id="shelf" required>
+        <datalist id="shelves"></datalist>
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-primary">Add Book</button>
+      </div>
+    </form>
+  </div>
+  <div id="books-container"></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
