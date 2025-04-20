@@ -122,3 +122,40 @@ h1, h2 {
 .search-results-list li:hover {
     background-color: #f0f0f0;
 }
+
+/* Styles for details section within book card */
+.book-details label {
+    font-size: 0.9em;
+    margin-right: 5px;
+}
+
+.book-details input[type="number"],
+.book-details textarea {
+    font-size: 0.9em;
+    padding: 3px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+.book-details textarea {
+    vertical-align: middle; /* Align textarea better with label */
+}
+
+.save-details-button {
+    font-size: 0.8em;
+    padding: 3px 8px;
+    cursor: pointer;
+    background-color: #f0ad4e; /* Orange */
+    color: white;
+    border: none;
+    border-radius: 3px;
+}
+
+.save-details-button:hover {
+    background-color: #ec971f;
+}
+
+.save-details-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}

@@ -168,6 +168,38 @@ func UpdateBookStatus(id int64, status string) error {
 	return nil
 }
 
+// UpdateBookDetails updates the rating and comments for a specific book.
+// It uses pointers for rating and comments to allow setting them to NULL.
+func UpdateBookDetails(id int64, rating *int, comments *string) error {
+	query := "UPDATE books SET rating = ?, comments = ? WHERE id = ?"
+	log.Println("Preparing SQL:", query)
+	stmt, err := DB.Prepare(query)
+	if err != nil {
+		log.Printf("Error preparing query '%s': %v", query, err)
+		return err
+	}
+	defer stmt.Close()
+
+	log.Printf("Executing SQL Update Details with params: Rating=%v, Comments=%v, ID=%d", rating, comments, id)
+	res, err := stmt.Exec(rating, comments, id)
+	if err != nil {
+		log.Printf("Error executing update details: %v", err)
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		log.Printf("No book found with ID %d to update details", id)
+		return sql.ErrNoRows // Indicate not found
+	}
+
+	log.Printf("Updated details for book ID %d", id)
+	return nil
+}
+
 
 // CloseDB closes the database connection.
 func CloseDB() {

@@ -276,4 +276,57 @@ func UpdateBookHandler(w http.ResponseWriter, r *http.Request) {
 	// json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
 }
 
-// Add other handlers (SearchOpenLibrary, DeleteBook, etc.) later.
+// UpdateBookDetailsHandler handles PUT requests to update a book's rating and comments.
+func UpdateBookDetailsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr, ok := vars["id"]
+	if !ok {
+		http.Error(w, "Bad request: Missing book ID", http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Bad request: Invalid book ID format", http.StatusBadRequest)
+		return
+	}
+
+	// Define a struct to decode the payload, using pointers for nullable fields
+	var payload struct {
+		Rating   *int    `json:"rating"`
+		Comments *string `json:"comments"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&payload); err != nil {
+		log.Printf("Error decoding update details JSON: %v", err)
+		http.Error(w, "Bad request: Invalid JSON format", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Validate rating if provided (must be between 1 and 10)
+	if payload.Rating != nil && (*payload.Rating < 1 || *payload.Rating > 10) {
+		http.Error(w, "Bad request: Rating must be between 1 and 10", http.StatusBadRequest)
+		return
+	}
+
+	// Update book details in the database
+	err = db.UpdateBookDetails(id, payload.Rating, payload.Comments)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("Attempted to update details for non-existent book ID: %d", id)
+			http.Error(w, "Not found: Book with given ID does not exist", http.StatusNotFound)
+		} else {
+			log.Printf("Error updating book details in DB for ID %d: %v", id, err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusOK) // 200 OK
+	// Optionally return the updated book or just status
+	// For simplicity, just return OK. Frontend can update its view.
+}
+
+
+// Add other handlers (DeleteBook, etc.) later.

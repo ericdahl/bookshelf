@@ -228,10 +228,52 @@ function createBookElement(book) {
         div.insertBefore(cover, title); // Insert cover before title
     }
 
+    // --- Add Rating and Comments Display/Editing ---
+    const detailsDiv = document.createElement('div');
+    detailsDiv.classList.add('book-details');
+    detailsDiv.style.marginTop = '10px'; // Add some spacing
 
-    // Add placeholders for rating/comments later
-    // if (book.rating) { ... }
-    // if (book.comments) { ... }
+    // Rating Display and Input
+    const ratingLabel = document.createElement('label');
+    ratingLabel.textContent = 'Rating (1-10): ';
+    ratingLabel.htmlFor = `rating-${book.id}`;
+    const ratingInput = document.createElement('input');
+    ratingInput.type = 'number';
+    ratingInput.id = `rating-${book.id}`;
+    ratingInput.name = 'rating';
+    ratingInput.min = '1';
+    ratingInput.max = '10';
+    ratingInput.value = book.rating !== null ? book.rating : ''; // Handle null rating
+    ratingInput.style.width = '50px'; // Small input field
+    ratingLabel.appendChild(ratingInput);
+    detailsDiv.appendChild(ratingLabel);
+    detailsDiv.appendChild(document.createElement('br')); // Line break
+
+    // Comments Display and Input
+    const commentsLabel = document.createElement('label');
+    commentsLabel.textContent = 'Comments: ';
+    commentsLabel.htmlFor = `comments-${book.id}`;
+    const commentsInput = document.createElement('textarea');
+    commentsInput.id = `comments-${book.id}`;
+    commentsInput.name = 'comments';
+    commentsInput.rows = 2; // Small textarea
+    commentsInput.style.width = '95%'; // Adjust width
+    commentsInput.style.marginTop = '5px';
+    commentsInput.value = book.comments !== null ? book.comments : ''; // Handle null comments
+    detailsDiv.appendChild(commentsLabel);
+    detailsDiv.appendChild(commentsInput);
+    detailsDiv.appendChild(document.createElement('br')); // Line break
+
+    // Save Button
+    const saveButton = document.createElement('button');
+    saveButton.textContent = 'Save Details';
+    saveButton.classList.add('save-details-button');
+    saveButton.style.marginTop = '5px';
+    saveButton.addEventListener('click', () => handleUpdateDetails(book.id));
+    detailsDiv.appendChild(saveButton);
+
+    div.appendChild(detailsDiv);
+    // ---------------------------------------------
 
     // Add drag start listener
     div.addEventListener('dragstart', handleDragStart);
@@ -256,7 +298,7 @@ async function handleAddBook(event) {
         title: selectedBook.title,
         author: selectedBook.author,
         cover_url: selectedBook.cover_url,
-        status: models.StatusWantToRead, // Default status
+        status: models.StatusCurrentlyReading, // Default status to Currently Reading
         // Add rating and comments here later when those fields exist
     };
 
@@ -407,6 +449,71 @@ function getStatusFromColumnId(columnId) {
             return null;
     }
 }
+
+// --- Handle Updating Book Details (Rating/Comments) ---
+async function handleUpdateDetails(bookId) {
+    console.log(`Saving details for book ID: ${bookId}`);
+    const ratingInput = document.getElementById(`rating-${bookId}`);
+    const commentsInput = document.getElementById(`comments-${bookId}`);
+
+    // Get values, treat empty string as null for backend
+    const ratingValue = ratingInput.value.trim();
+    const commentsValue = commentsInput.value.trim();
+
+    let rating = null;
+    if (ratingValue !== '') {
+        rating = parseInt(ratingValue, 10);
+        if (isNaN(rating) || rating < 1 || rating > 10) {
+            alert("Rating must be a number between 1 and 10.");
+            ratingInput.focus(); // Focus the invalid input
+            return;
+        }
+    }
+
+    const comments = commentsValue !== '' ? commentsValue : null;
+
+    const payload = {
+        rating: rating,
+        comments: comments,
+    };
+
+    console.log("Payload for update:", payload);
+
+    try {
+        const response = await fetch(`/api/books/${bookId}/details`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+
+        console.log(`Details updated successfully for book ID: ${bookId}`);
+        // Optional: Provide visual feedback (e.g., briefly change button text/color)
+        const saveButton = ratingInput.closest('.book-card').querySelector('.save-details-button');
+        if (saveButton) {
+            const originalText = saveButton.textContent;
+            saveButton.textContent = 'Saved!';
+            saveButton.disabled = true;
+            setTimeout(() => {
+                saveButton.textContent = originalText;
+                saveButton.disabled = false;
+            }, 1500); // Revert after 1.5 seconds
+        }
+        // No need to reload all books, the UI inputs already reflect the change.
+        // If we displayed rating/comments separately from inputs, we'd update those here.
+
+    } catch (error) {
+        console.error('Error updating book details:', error);
+        alert(`Error updating details: ${error.message}`);
+    }
+}
+
 
 // --- Add models constants to JS for status ---
 // This avoids hardcoding strings in multiple places
