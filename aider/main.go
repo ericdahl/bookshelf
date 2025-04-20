@@ -8,6 +8,8 @@ import (
 
 	"bookshelf/api"
 	"bookshelf/db"
+
+	"github.com/gorilla/mux" // Import gorilla/mux
 )
 
 func main() {
@@ -17,12 +19,15 @@ func main() {
 	}
 	defer db.CloseDB() // Ensure DB connection is closed on exit
 
-	// --- Server Setup ---
-	mux := http.NewServeMux()
+	// --- Server Setup using gorilla/mux ---
+	r := mux.NewRouter() // Use gorilla/mux router
 
 	// API Routes
-	mux.HandleFunc("/api/books", api.GetBooksHandler)
-	// Add other API routes here later (POST /api/books, PUT /api/books/{id}, etc.)
+	apiRouter := r.PathPrefix("/api").Subrouter()
+	apiRouter.HandleFunc("/books", api.GetBooksHandler).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/books", api.AddBookHandler).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/books/{id:[0-9]+}", api.UpdateBookHandler).Methods(http.MethodPut) // Route for updating status
+	// Add other API routes here later (DELETE /api/books/{id}, etc.)
 
 	// Frontend Route - Serve static files from 'web' directory
 	// Determine the directory of the executable
@@ -43,13 +48,18 @@ func main() {
 		log.Printf("Serving static files from executable path: %s", filepath.Join(exePath, "web"))
 	}
 
+	// Serve static files using PathPrefix, ensuring it doesn't clash with API routes
+	// The handler needs to strip the prefix AND serve the file.
+	// http.StripPrefix is not directly compatible with gorilla/mux's Handle function in this way.
+	// A common pattern is to use PathPrefix("/").Handler(...) as a catch-all AFTER specific routes.
 	fs := http.FileServer(webDir)
-	mux.Handle("/", fs) // Serve index.html and other assets
+	r.PathPrefix("/").Handler(fs) // Serve static files for any path not matched above
 
 	// Start Server
 	port := "8080"
 	log.Printf("Starting server on http://localhost:%s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	// Use the gorilla/mux router 'r' instead of the default 'mux'
+	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }

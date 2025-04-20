@@ -4,16 +4,21 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv" // Add strconv for parsing ID
 
 	"bookshelf/db"
+	"bookshelf/models" // Add models import
+
+	"github.com/gorilla/mux" // Import gorilla/mux
 )
 
-// GetBooksHandler handles requests to retrieve all books.
+// GetBooksHandler handles GET requests to retrieve all books.
 func GetBooksHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	// Method check is handled by mux router
+	// if r.Method != http.MethodGet {
+	// 	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	// 	return
+	// }
 
 	books, err := db.GetAllBooks()
 	if err != nil {
@@ -29,4 +34,102 @@ func GetBooksHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Add other handlers here (AddBook, UpdateBook, SearchOpenLibrary, etc.) later.
+// AddBookHandler handles POST requests to add a new book.
+func AddBookHandler(w http.ResponseWriter, r *http.Request) {
+	var book models.Book
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&book); err != nil {
+		log.Printf("Error decoding book JSON: %v", err)
+		http.Error(w, "Bad request: Invalid JSON format", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Basic validation (can be expanded)
+	if book.Title == "" {
+		http.Error(w, "Bad request: Title is required", http.StatusBadRequest)
+		return
+	}
+	// Ensure default status if not provided by client (though frontend does)
+	if book.Status == "" {
+		book.Status = models.StatusWantToRead
+	}
+
+	// Add book to database
+	id, err := db.AddBook(book)
+	if err != nil {
+		log.Printf("Error adding book to DB: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Return the newly created book (or just the ID)
+	book.ID = id // Set the ID in the response object
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated) // 201 Created
+	if err := json.NewEncoder(w).Encode(book); err != nil {
+		log.Printf("Error encoding newly added book to JSON: %v", err)
+	}
+}
+
+// UpdateBookHandler handles PUT requests to update a book's status.
+func UpdateBookHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr, ok := vars["id"]
+	if !ok {
+		http.Error(w, "Bad request: Missing book ID", http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Bad request: Invalid book ID format", http.StatusBadRequest)
+		return
+	}
+
+	var payload struct {
+		Status string `json:"status"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&payload); err != nil {
+		log.Printf("Error decoding update status JSON: %v", err)
+		http.Error(w, "Bad request: Invalid JSON format", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Validate status (optional but good practice)
+	isValidStatus := false
+	validStatuses := []string{models.StatusWantToRead, models.StatusCurrentlyReading, models.StatusRead}
+	for _, s := range validStatuses {
+		if payload.Status == s {
+			isValidStatus = true
+			break
+		}
+	}
+	if !isValidStatus || payload.Status == "" {
+		http.Error(w, "Bad request: Invalid or missing status value", http.StatusBadRequest)
+		return
+	}
+
+	// Update book status in database
+	err = db.UpdateBookStatus(id, payload.Status)
+	if err != nil {
+		// Handle specific errors like not found if needed
+		// A more robust check might involve errors.Is(err, sql.ErrNoRows) in Go 1.13+
+		if err.Error() == "sql: no rows in result set" { // Simple check, might need refinement
+			log.Printf("Attempted to update non-existent book ID: %d", id)
+			http.Error(w, "Not found: Book with given ID does not exist", http.StatusNotFound)
+		} else {
+			log.Printf("Error updating book status in DB for ID %d: %v", id, err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusOK) // 200 OK (or 204 No Content if preferred)
+	// Optionally return the updated status or book object
+	// json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+}
+
+// Add other handlers (SearchOpenLibrary, DeleteBook, etc.) later.

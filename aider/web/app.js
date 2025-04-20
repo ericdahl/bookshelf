@@ -60,8 +60,8 @@ function displayBooks(books) {
         }
     });
 
-    // Initialize drag and drop after books are displayed (will be added later)
-    // initDragAndDrop();
+    // Initialize drag and drop after books are displayed
+    initDragAndDrop();
 }
 
 function createBookElement(book) {
@@ -85,7 +85,8 @@ function createBookElement(book) {
     // if (book.comments) { ... }
 
     // Add drag start listener (will be implemented later)
-    // div.addEventListener('dragstart', handleDragStart);
+    // Add drag start listener
+    div.addEventListener('dragstart', handleDragStart);
 
     return div;
 }
@@ -106,98 +107,150 @@ async function handleAddBook(event) {
 
     console.log("New book data:", newBook);
 
-    // TODO: Implement POST request to /api/books
-    // try {
-    //     const response = await fetch('/api/books', {
-    //         method: 'POST',
-    //         headers: {
-    //             'Content-Type': 'application/json',
-    //         },
-    //         body: JSON.stringify(newBook),
-    //     });
-    //     if (!response.ok) {
-    //         throw new Error(`HTTP error! status: ${response.status}`);
-    //     }
-    //     // Clear form and reload books
-    //     titleInput.value = '';
-    //     authorInput.value = '';
-    //     loadBooks();
-    // } catch (error) {
-    //     console.error('Error adding book:', error);
-    // }
+    // Implement POST request to /api/books
+    try {
+        const response = await fetch('/api/books', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(newBook),
+        });
+        if (!response.ok) {
+             const errorText = await response.text(); // Get error details from backend
+             throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+        // Clear form and reload books
+        titleInput.value = '';
+        authorInput.value = '';
+        loadBooks(); // Reload to show the new book
+    } catch (error) {
+        console.error('Error adding book:', error);
+        alert(`Error adding book: ${error.message}`); // Show error to user
+    }
 }
 
-// --- Drag and Drop Functions (Placeholders) ---
+// --- Drag and Drop Functions ---
 
-// function initDragAndDrop() {
-//     console.log("Initializing drag and drop (implementation pending)...");
-//     const columns = document.querySelectorAll('.column');
-//     columns.forEach(column => {
-//         column.addEventListener('dragover', handleDragOver);
-//         column.addEventListener('drop', handleDrop);
+function initDragAndDrop() {
+    console.log("Initializing drag and drop...");
+    const columns = document.querySelectorAll('.column');
+    columns.forEach(column => {
+        // Prevent default behavior to allow drop
+        column.addEventListener('dragover', handleDragOver);
+        // Handle the drop event
+        column.addEventListener('drop', handleDrop);
+    });
+    // Note: dragstart is added in createBookElement
+}
+
+function handleDragStart(event) {
+    // Check if the dragged element is a book card
+    if (event.target.classList.contains('book-card')) {
+        const bookId = event.target.dataset.bookId;
+        console.log("Drag start:", bookId);
+        event.dataTransfer.setData('text/plain', bookId);
+        event.dataTransfer.effectAllowed = 'move';
+    } else {
+        // Prevent dragging non-book elements within columns
+        event.preventDefault();
+    }
+}
+
+
+function handleDragOver(event) {
+    event.preventDefault(); // Necessary to allow drop
+    event.dataTransfer.dropEffect = 'move';
+    // Optional: Add visual feedback (e.g., highlight drop zone)
+    // event.target.closest('.column').classList.add('drag-over');
+}
+
+// Optional: Add dragleave listener to remove visual feedback
+// document.querySelectorAll('.column').forEach(column => {
+//     column.addEventListener('dragleave', (event) => {
+//         event.target.closest('.column').classList.remove('drag-over');
 //     });
-// }
+// });
 
-// function handleDragStart(event) {
-//     console.log("Drag start:", event.target.dataset.bookId);
-//     event.dataTransfer.setData('text/plain', event.target.dataset.bookId);
-//     event.dataTransfer.effectAllowed = 'move';
-// }
 
-// function handleDragOver(event) {
-//     event.preventDefault(); // Necessary to allow drop
-//     event.dataTransfer.dropEffect = 'move';
-// }
+async function handleDrop(event) {
+    event.preventDefault();
+    // Optional: Remove visual feedback
+    // event.target.closest('.column').classList.remove('drag-over');
 
-// async function handleDrop(event) {
-//     event.preventDefault();
-//     const bookId = event.dataTransfer.getData('text/plain');
-//     const targetColumn = event.target.closest('.column'); // Find the column element
+    const bookId = event.dataTransfer.getData('text/plain');
+    const targetColumn = event.target.closest('.column'); // Find the column element
 
-//     if (!targetColumn || !bookId) {
-//         console.error("Drop target is not a valid column or bookId is missing.");
-//         return;
-//     }
+    if (!targetColumn || !bookId) {
+        console.error("Drop target is not a valid column or bookId is missing.");
+        return;
+    }
 
-//     const newStatus = getStatusFromColumnId(targetColumn.id);
-//     if (!newStatus) {
-//         console.error("Could not determine new status from column ID:", targetColumn.id);
-//         return;
-//     }
+    // Find the dragged element
+    const draggedElement = document.querySelector(`.book-card[data-book-id="${bookId}"]`);
+    if (!draggedElement) {
+        console.error(`Dragged element for book ID ${bookId} not found.`);
+        return; // Should not happen if dragstart worked correctly
+    }
 
-//     console.log(`Dropping book ${bookId} into column ${targetColumn.id} (status: ${newStatus})`);
+    // Prevent dropping onto the same column it came from
+    if (targetColumn === draggedElement.parentElement) {
+        console.log("Book dropped onto the same column.");
+        return;
+    }
 
-//     // TODO: Implement PUT request to /api/books/{bookId} to update status
-//     // try {
-//     //     const response = await fetch(`/api/books/${bookId}`, {
-//     //         method: 'PUT',
-//     //         headers: {
-//     //             'Content-Type': 'application/json',
-//     //         },
-//     //         body: JSON.stringify({ status: newStatus }),
-//     //     });
-//     //     if (!response.ok) {
-//     //         throw new Error(`HTTP error! status: ${response.status}`);
-//     //     }
-//     //     // Move the element in the UI immediately for responsiveness
-//     //     const draggedElement = document.querySelector(`.book-card[data-book-id="${bookId}"]`);
-//     //     if (draggedElement) {
-//     //         targetColumn.appendChild(draggedElement);
-//     //     } else {
-//     //         // If element not found (shouldn't happen), reload all books
-//     //         loadBooks();
-//     //     }
-//     // } catch (error) {
-//     //     console.error('Error updating book status:', error);
-//     //     // Optionally revert the UI change or show an error
-//     // }
-// }
 
-// function getStatusFromColumnId(columnId) {
-//     switch (columnId) {
-//         case 'want-to-read': return 'Want to Read';
-//         case 'currently-reading': return 'Currently Reading';
-//         case 'read': return 'Read';
-//         default: return null;
-//     }
-// }
+    const newStatus = getStatusFromColumnId(targetColumn.id);
+    if (!newStatus) {
+        console.error("Could not determine new status from column ID:", targetColumn.id);
+        return;
+    }
+
+    console.log(`Dropping book ${bookId} into column ${targetColumn.id} (status: ${newStatus})`);
+
+    // --- Optimistic UI Update ---
+    // Move the element in the UI immediately for responsiveness.
+    // Append the dragged element to the target column.
+    // We need to ensure we append the actual book card, not just text inside it.
+    targetColumn.appendChild(draggedElement);
+    // --------------------------
+
+
+    // Implement PUT request to /api/books/{bookId} to update status
+    try {
+        const response = await fetch(`/api/books/${bookId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ status: newStatus }), // Send only the status
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+        console.log(`Book ${bookId} status updated successfully to ${newStatus}`);
+        // UI is already updated optimistically. If the request fails, we might need to revert.
+    } catch (error) {
+        console.error('Error updating book status:', error);
+        alert(`Error updating book status: ${error.message}`);
+        // --- Revert UI on Failure ---
+        // If the API call fails, move the element back to its original column
+        // This requires knowing the original column, which we can get before the move
+        // or simply reload all books for simplicity in this example.
+        console.log("Reloading books due to update error...");
+        loadBooks(); // Reload to ensure UI consistency after error
+        // --------------------------
+    }
+}
+
+function getStatusFromColumnId(columnId) {
+    switch (columnId) {
+        case 'want-to-read': return 'Want to Read';
+        case 'currently-reading': return 'Currently Reading';
+        case 'read': return 'Read';
+        default:
+            console.error("Unknown column ID:", columnId);
+            return null;
+    }
+}

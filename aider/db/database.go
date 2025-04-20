@@ -89,6 +89,61 @@ func GetAllBooks() ([]models.Book, error) {
 	return books, nil
 }
 
+// AddBook inserts a new book into the database.
+func AddBook(book models.Book) (int64, error) {
+	stmt, err := DB.Prepare("INSERT INTO books(title, author, open_library_id, status, rating, comments, cover_url) VALUES(?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+
+	// Use default status if not provided, although the frontend currently sets it
+	if book.Status == "" {
+		book.Status = models.StatusWantToRead
+	}
+
+	res, err := stmt.Exec(book.Title, book.Author, book.OpenLibraryID, book.Status, book.Rating, book.Comments, book.CoverURL)
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	log.Printf("Added book with ID: %d", id)
+	return id, nil
+}
+
+// UpdateBookStatus updates the status of a specific book.
+func UpdateBookStatus(id int64, status string) error {
+	stmt, err := DB.Prepare("UPDATE books SET status = ? WHERE id = ?")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(status, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		log.Printf("No book found with ID %d to update status", id)
+		// Consider returning a specific error like sql.ErrNoRows here if needed
+		return sql.ErrNoRows // Or a custom error
+	}
+
+	log.Printf("Updated status for book ID %d to %s", id, status)
+	return nil
+}
+
+
 // CloseDB closes the database connection.
 func CloseDB() {
 	if DB != nil {
