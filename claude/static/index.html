@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Books</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <base href="/">
+</head>
+<body>
+    <div id="app">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container">
+                <a class="navbar-brand" href="#">
+                    <i class="bi bi-book me-2"></i>Vibe Books
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#" @click="showBooks">All Books</a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                Shelves
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li v-for="shelf in shelves" :key="shelf.id">
+                                    <a class="dropdown-item" href="#" @click="showShelfBooks(shelf)">{{ shelf.name }}</a>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <button class="btn btn-outline-light" @click="showAddBookModal">
+                        <i class="bi bi-plus-lg me-1"></i>Add Book
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mt-4">
+            <!-- Books View -->
+            <div v-if="view === 'books'">
+                <div class="row mb-4">
+                    <div class="col">
+                        <h2>{{ currentShelf ? currentShelf.name : 'All Books' }}</h2>
+                    </div>
+                    <div class="col-auto">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Search books..." v-model="searchTerm">
+                            <button class="btn btn-outline-secondary" type="button">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                    <div v-for="book in filteredBooks" :key="book.id" class="col">
+                        <div class="card h-100 book-card">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ book.title }}</h5>
+                                <h6 class="card-subtitle mb-2 text-muted">{{ book.author }}</h6>
+                                <div class="mb-2">
+                                    <div class="rating">
+                                        <span v-for="i in 5" :key="i" 
+                                              :class="{'star-filled': i <= book.rating, 'star-empty': i > book.rating}">★</span>
+                                        <span class="ms-2">({{ book.rating.toFixed(1) }})</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer d-flex justify-content-between">
+                                <button class="btn btn-sm btn-outline-primary" @click="showEditBookModal(book)">
+                                    <i class="bi bi-pencil-square me-1"></i>Edit
+                                </button>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                            type="button" data-bs-toggle="dropdown">
+                                        <i class="bi bi-bookshelf me-1"></i>Shelves
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li v-for="shelf in shelves" :key="shelf.id">
+                                            <a class="dropdown-item" href="#" @click="addBookToShelf(book, shelf)">
+                                                {{ shelf.name }}
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger" @click="confirmDeleteBook(book)">
+                                    <i class="bi bi-trash me-1"></i>Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="filteredBooks.length === 0" class="text-center my-5">
+                    <i class="bi bi-book display-1 text-muted"></i>
+                    <p class="mt-3 text-muted">No books found. Add some books to your collection!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Book Modal -->
+        <div class="modal fade" id="addBookModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ editingBook ? 'Edit Book' : 'Add New Book' }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="saveBook">
+                            <div class="mb-3">
+                                <label for="title" class="form-label">Title</label>
+                                <input type="text" class="form-control" id="title" v-model="newBook.title" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="author" class="form-label">Author</label>
+                                <input type="text" class="form-control" id="author" v-model="newBook.author" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="rating" class="form-label">Rating (1-5)</label>
+                                <div class="rating-input">
+                                    <span v-for="i in 5" :key="i" 
+                                          @click="newBook.rating = i"
+                                          :class="{'star-filled': i <= newBook.rating, 'star-empty': i > newBook.rating}">★</span>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Add to Shelves</label>
+                                <div class="shelf-options">
+                                    <div v-for="shelf in shelves" :key="shelf.id" class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               :id="'shelf-' + shelf.id" 
+                                               :value="shelf.id" 
+                                               v-model="selectedShelves">
+                                        <label class="form-check-label" :for="'shelf-' + shelf.id">
+                                            {{ shelf.name }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" @click="saveBook">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div class="modal fade" id="deleteBookModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Confirm Delete</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete "{{ bookToDelete?.title }}"?</p>
+                        <p class="text-danger">This action cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" @click="deleteBook">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/vue@3.2.47/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

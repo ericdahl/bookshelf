@@ -48,6 +48,15 @@ func main() {
 	router.HandleFunc("/api/shelves/{shelfId}/books/{bookId}", AddBookToShelfHandler).Methods("POST")
 	router.HandleFunc("/api/shelves/{shelfId}/books/{bookId}", RemoveBookFromShelfHandler).Methods("DELETE")
 	
+	// Serve static files for the web UI
+	fs := http.FileServer(http.Dir("./static"))
+	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))
+	
+	// Serve the main index.html for the root path
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./static/index.html")
+	})
+	
 	log.Println("Server started on :8000")
 	log.Fatal(http.ListenAndServe(":8000", router))
 }
