@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vibe Books</title>
+    <title>Bookshelf</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="/static/css/styles.css">
@@ -14,7 +14,7 @@
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
             <div class="container">
                 <a class="navbar-brand" href="#">
-                    <i class="bi bi-book me-2"></i>Vibe Books
+                    <i class="bi bi-book me-2"></i>Bookshelf
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                     <span class="navbar-toggler-icon"></span>
@@ -22,19 +22,41 @@
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <a class="nav-link active" href="#" @click="showBooks">All Books</a>
+                            <a class="nav-link" :class="{'active': !currentCategory}" href="#" @click="showAllBooks">All Books</a>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                Shelves
+                            <a class="nav-link dropdown-toggle" :class="{'active': currentCategory === 'shelf'}" href="#" role="button" data-bs-toggle="dropdown">
+                                By Shelf
                             </a>
                             <ul class="dropdown-menu">
-                                <li v-for="shelf in shelves" :key="shelf.id">
-                                    <a class="dropdown-item" href="#" @click="showShelfBooks(shelf)">{{ shelf.name }}</a>
+                                <li v-for="shelf in sortedShelves" :key="shelf.id">
+                                    <a class="dropdown-item" href="#" @click="showBooksByShelf(shelf)">{{ shelf.name }}</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" :class="{'active': currentCategory === 'author'}" href="#" role="button" data-bs-toggle="dropdown">
+                                By Author
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li v-for="author in authors" :key="author">
+                                    <a class="dropdown-item" href="#" @click="showBooksByAuthor(author)">{{ author }}</a>
                                 </li>
                             </ul>
                         </li>
                     </ul>
+                    <div class="d-flex me-3">
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-outline-light dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="bi bi-sort-alpha-down me-1"></i>Sort
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" @click="sortBooks('title')">Title</a></li>
+                                <li><a class="dropdown-item" href="#" @click="sortBooks('author')">Author</a></li>
+                                <li><a class="dropdown-item" href="#" @click="sortBooks('created_at')">Date Added</a></li>
+                            </ul>
+                        </div>
+                    </div>
                     <button class="btn btn-outline-light" @click="showAddBookModal">
                         <i class="bi bi-plus-lg me-1"></i>Add Book
                     </button>
@@ -44,10 +66,10 @@
 
         <div class="container mt-4">
             <!-- Books View -->
-            <div v-if="view === 'books'">
+            <div>
                 <div class="row mb-4">
                     <div class="col">
-                        <h2>{{ currentShelf ? currentShelf.name : 'All Books' }}</h2>
+                        <h2>{{ pageTitle }}</h2>
                     </div>
                     <div class="col-auto">
                         <div class="input-group">
@@ -59,46 +81,97 @@
                     </div>
                 </div>
 
-                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                    <div v-for="book in filteredBooks" :key="book.id" class="col">
-                        <div class="card h-100 book-card">
-                            <div class="card-body">
-                                <h5 class="card-title">{{ book.title }}</h5>
-                                <h6 class="card-subtitle mb-2 text-muted">{{ book.author }}</h6>
-                                <div class="mb-2">
-                                    <div class="rating">
-                                        <span v-for="i in 5" :key="i" 
-                                              :class="{'star-filled': i <= book.rating, 'star-empty': i > book.rating}">★</span>
-                                        <span class="ms-2">({{ book.rating.toFixed(1) }})</span>
+                <!-- Grouped Books View -->
+                <template v-if="currentCategory">
+                    <div v-for="(group, groupName) in groupedBooks" :key="groupName" class="mb-5">
+                        <h3 class="mb-3 border-bottom pb-2">{{ groupName }}</h3>
+                        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                            <div v-for="book in group" :key="book.id" class="col">
+                                <div class="card h-100 book-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">{{ book.title }}</h5>
+                                        <h6 class="card-subtitle mb-2 text-muted">{{ book.author }}</h6>
+                                        <div class="mb-2">
+                                            <div class="rating">
+                                                <span v-for="i in 10" :key="i" 
+                                                    :class="{'star-filled': i <= book.rating, 'star-empty': i > book.rating}">★</span>
+                                                <span class="ms-2">({{ book.rating.toFixed(1) }})</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer d-flex justify-content-between">
+                                        <button class="btn btn-sm btn-outline-primary" @click="showEditBookModal(book)">
+                                            <i class="bi bi-pencil-square me-1"></i>Edit
+                                        </button>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                    type="button" data-bs-toggle="dropdown">
+                                                <i class="bi bi-bookshelf me-1"></i>Shelves
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li v-for="shelf in shelves" :key="shelf.id">
+                                                    <a class="dropdown-item" href="#" @click="addBookToShelf(book, shelf)">
+                                                        {{ shelf.name }}
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-danger" @click="confirmDeleteBook(book)">
+                                            <i class="bi bi-trash me-1"></i>Delete
+                                        </button>
                                     </div>
                                 </div>
                             </div>
-                            <div class="card-footer d-flex justify-content-between">
-                                <button class="btn btn-sm btn-outline-primary" @click="showEditBookModal(book)">
-                                    <i class="bi bi-pencil-square me-1"></i>Edit
-                                </button>
-                                <div class="dropdown">
-                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
-                                            type="button" data-bs-toggle="dropdown">
-                                        <i class="bi bi-bookshelf me-1"></i>Shelves
-                                    </button>
-                                    <ul class="dropdown-menu">
-                                        <li v-for="shelf in shelves" :key="shelf.id">
-                                            <a class="dropdown-item" href="#" @click="addBookToShelf(book, shelf)">
-                                                {{ shelf.name }}
-                                            </a>
-                                        </li>
-                                    </ul>
+                        </div>
+                        <div v-if="group.length === 0" class="text-center my-5">
+                            <p class="text-muted">No books in this category.</p>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Regular Books View -->
+                <template v-else>
+                    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                        <div v-for="book in sortedFilteredBooks" :key="book.id" class="col">
+                            <div class="card h-100 book-card">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ book.title }}</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">{{ book.author }}</h6>
+                                    <div class="mb-2">
+                                        <div class="rating">
+                                            <span v-for="i in 10" :key="i" 
+                                                :class="{'star-filled': i <= book.rating, 'star-empty': i > book.rating}">★</span>
+                                            <span class="ms-2">({{ book.rating.toFixed(1) }})</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <button class="btn btn-sm btn-outline-danger" @click="confirmDeleteBook(book)">
-                                    <i class="bi bi-trash me-1"></i>Delete
-                                </button>
+                                <div class="card-footer d-flex justify-content-between">
+                                    <button class="btn btn-sm btn-outline-primary" @click="showEditBookModal(book)">
+                                        <i class="bi bi-pencil-square me-1"></i>Edit
+                                    </button>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                type="button" data-bs-toggle="dropdown">
+                                            <i class="bi bi-bookshelf me-1"></i>Shelves
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li v-for="shelf in shelves" :key="shelf.id">
+                                                <a class="dropdown-item" href="#" @click="addBookToShelf(book, shelf)">
+                                                    {{ shelf.name }}
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-danger" @click="confirmDeleteBook(book)">
+                                        <i class="bi bi-trash me-1"></i>Delete
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                </template>
 
-                <div v-if="filteredBooks.length === 0" class="text-center my-5">
+                <div v-if="totalBooks === 0" class="text-center my-5">
                     <i class="bi bi-book display-1 text-muted"></i>
                     <p class="mt-3 text-muted">No books found. Add some books to your collection!</p>
                 </div>
@@ -124,9 +197,9 @@
                                 <input type="text" class="form-control" id="author" v-model="newBook.author" required>
                             </div>
                             <div class="mb-3">
-                                <label for="rating" class="form-label">Rating (1-5)</label>
+                                <label for="rating" class="form-label">Rating (1-10)</label>
                                 <div class="rating-input">
-                                    <span v-for="i in 5" :key="i" 
+                                    <span v-for="i in 10" :key="i" 
                                           @click="newBook.rating = i"
                                           :class="{'star-filled': i <= newBook.rating, 'star-empty': i > newBook.rating}">★</span>
                                 </div>
