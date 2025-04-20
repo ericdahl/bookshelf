@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"os"
-	"path/filepath"
+	// "path/filepath" // Removed as it was unused
 
 	"bookshelf/models"
 
