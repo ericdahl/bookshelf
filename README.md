@@ -160,6 +160,23 @@ The backend provides a simple REST API:
         *   `404 Not Found`: Book with the specified ID does not exist.
         *   `500 Internal Server Error`: Database error.
 
+*   **`PUT /api/books/{id}/details`**
+    *   Description: Updates the **rating and/or comments** for a specific book.
+    *   URL Parameter: `{id}` - The integer ID of the book to update.
+    *   Request Body: JSON object containing the fields to update. Send `null` to clear a field. Rating must be 1-10 if provided.
+        ```json
+        {
+          "rating": 8,          // Optional (number 1-10 or null)
+          "comments": "Great read!" // Optional (string or null)
+        }
+        ```
+    *   Response:
+        *   `200 OK`: Success.
+        *   `400 Bad Request`: Invalid JSON, invalid rating value, or invalid/missing ID.
+        *   `404 Not Found`: Book with the specified ID does not exist.
+        *   `500 Internal Server Error`: Database error.
+
+
 ## Future Enhancements
 
 *   Implement delete book functionality.
