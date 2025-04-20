@@ -31,3 +31,4 @@ vendor/
 
 # Environment files
 .env
+.aider*
