@@ -30,7 +30,14 @@
                             </a>
                             <ul class="dropdown-menu">
                                 <li v-for="shelf in sortedShelves" :key="shelf.id">
-                                    <a class="dropdown-item" href="#" @click="showBooksByShelf(shelf)">{{ shelf.name }}</a>
+                                    <a class="dropdown-item shelf-drop-target" href="#" 
+                                       @click="showBooksByShelf(shelf)"
+                                       @dragover.prevent
+                                       @dragenter="dragEnterShelf($event, shelf)"
+                                       @dragleave="dragLeaveShelf($event)"
+                                       @drop="dropOnShelf($event, shelf)">
+                                        {{ shelf.name }}
+                                    </a>
                                 </li>
                             </ul>
                         </li>
@@ -84,10 +91,22 @@
                 <!-- Grouped Books View -->
                 <template v-if="currentCategory">
                     <div v-for="(group, groupName) in groupedBooks" :key="groupName" class="mb-5">
-                        <h3 class="mb-3 border-bottom pb-2">{{ groupName }}</h3>
+                        <h3 class="mb-3 border-bottom pb-2 shelf-header"
+                           @dragover.prevent
+                           @dragenter="dragEnterShelfHeader($event)"
+                           @dragleave="dragLeaveShelfHeader($event)"
+                           @drop="dropOnShelfHeader($event, groupName)">
+                            {{ groupName }}
+                            <small v-if="draggedBook && draggedSourceShelf !== groupName" class="text-muted ms-2">
+                                <i class="bi bi-plus-circle"></i> Drop to add
+                            </small>
+                        </h3>
                         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
                             <div v-for="book in group" :key="book.id" class="col">
-                                <div class="card h-100 book-card">
+                                <div class="card h-100 book-card" 
+                                     draggable="true"
+                                     @dragstart="startDrag($event, book, groupName)"
+                                     @dragend="endDrag">
                                     <div class="card-body">
                                         <h5 class="card-title">{{ book.title }}</h5>
                                         <h6 class="card-subtitle mb-2 text-muted">{{ book.author }}</h6>
@@ -103,19 +122,6 @@
                                         <button class="btn btn-sm btn-outline-primary" @click="showEditBookModal(book)">
                                             <i class="bi bi-pencil-square me-1"></i>Edit
                                         </button>
-                                        <div class="dropdown">
-                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
-                                                    type="button" data-bs-toggle="dropdown">
-                                                <i class="bi bi-bookshelf me-1"></i>Shelves
-                                            </button>
-                                            <ul class="dropdown-menu">
-                                                <li v-for="shelf in shelves" :key="shelf.id">
-                                                    <a class="dropdown-item" href="#" @click="addBookToShelf(book, shelf)">
-                                                        {{ shelf.name }}
-                                                    </a>
-                                                </li>
-                                            </ul>
-                                        </div>
                                         <button class="btn btn-sm btn-outline-danger" @click="confirmDeleteBook(book)">
                                             <i class="bi bi-trash me-1"></i>Delete
                                         </button>
@@ -133,7 +139,9 @@
                 <template v-else>
                     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
                         <div v-for="book in sortedFilteredBooks" :key="book.id" class="col">
-                            <div class="card h-100 book-card">
+                            <div class="card h-100 book-card"
+                                 draggable="true"
+                                 @dragstart="startDrag($event, book, null)">
                                 <div class="card-body">
                                     <h5 class="card-title">{{ book.title }}</h5>
                                     <h6 class="card-subtitle mb-2 text-muted">{{ book.author }}</h6>
@@ -149,19 +157,6 @@
                                     <button class="btn btn-sm btn-outline-primary" @click="showEditBookModal(book)">
                                         <i class="bi bi-pencil-square me-1"></i>Edit
                                     </button>
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
-                                                type="button" data-bs-toggle="dropdown">
-                                            <i class="bi bi-bookshelf me-1"></i>Shelves
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                            <li v-for="shelf in shelves" :key="shelf.id">
-                                                <a class="dropdown-item" href="#" @click="addBookToShelf(book, shelf)">
-                                                    {{ shelf.name }}
-                                                </a>
-                                            </li>
-                                        </ul>
-                                    </div>
                                     <button class="btn btn-sm btn-outline-danger" @click="confirmDeleteBook(book)">
                                         <i class="bi bi-trash me-1"></i>Delete
                                     </button>
@@ -205,17 +200,17 @@
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Add to Shelves</label>
+                                <label class="form-label">Add to Shelf</label>
                                 <div class="shelf-options">
-                                    <div v-for="shelf in shelves" :key="shelf.id" class="form-check">
-                                        <input class="form-check-input" type="checkbox" 
-                                               :id="'shelf-' + shelf.id" 
-                                               :value="shelf.id" 
-                                               v-model="selectedShelves">
-                                        <label class="form-check-label" :for="'shelf-' + shelf.id">
+                                    <select class="form-select" v-model="selectedShelves[0]">
+                                        <option value="">None</option>
+                                        <option v-for="shelf in shelves" :key="shelf.id" :value="shelf.id">
                                             {{ shelf.name }}
-                                        </label>
-                                    </div>
+                                        </option>
+                                    </select>
+                                    <small class="text-muted mt-2 d-block">
+                                        <i class="bi bi-info-circle"></i> A book can only be in one shelf at a time
+                                    </small>
                                 </div>
                             </div>
                         </form>

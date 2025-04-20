@@ -90,3 +90,38 @@ body {
 .dropdown-item:active {
     background-color: var(--primary-color);
 }
+
+/* Drag and Drop styling */
+.book-card {
+    cursor: grab;
+}
+
+.book-card:active {
+    cursor: grabbing;
+}
+
+.shelf-drop-target.drag-over {
+    background-color: var(--secondary-color);
+    color: var(--dark-color);
+    font-weight: bold;
+}
+
+.shelf-header {
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.shelf-header.drag-over {
+    background-color: rgba(152, 193, 217, 0.3);
+    cursor: pointer;
+}
+
+.shelf-header small {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.shelf-header.drag-over small {
+    opacity: 1;
+}

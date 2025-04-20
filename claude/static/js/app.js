@@ -20,7 +20,10 @@ const app = Vue.createApp({
             addBookModal: null,
             deleteBookModal: null,
             toastMessage: '',
-            showToast: false
+            showToast: false,
+            // Drag and drop state
+            draggedBook: null,
+            draggedSourceShelf: null
         }
     },
     computed: {
@@ -371,25 +374,21 @@ const app = Vue.createApp({
                     this.books.push(response.data);
                 }
                 
-                // Handle shelves
+                // Handle shelves - a book can only be in one shelf
                 const bookId = response.data.id;
                 
-                // First, we need to remove the book from all shelves
-                if (this.editingBook) {
-                    for (const shelfId in this.booksInShelf) {
-                        const books = this.booksInShelf[shelfId];
-                        if (books.some(b => b.id === bookId)) {
-                            if (!this.selectedShelves.includes(shelfId)) {
-                                // The book should be removed from this shelf
-                                await axios.delete(`/api/shelves/${shelfId}/books/${bookId}`);
-                            }
-                        }
+                // First, remove the book from all shelves
+                for (const shelfId in this.booksInShelf) {
+                    const books = this.booksInShelf[shelfId];
+                    if (books.some(b => b.id === bookId)) {
+                        await axios.delete(`/api/shelves/${shelfId}/books/${bookId}`);
                     }
                 }
                 
-                // Then add it to the selected shelves
-                for (const shelfId of this.selectedShelves) {
-                    await axios.post(`/api/shelves/${shelfId}/books/${bookId}`);
+                // Then add it to the selected shelf (only the first one if multiple are selected)
+                if (this.selectedShelves.length > 0) {
+                    const targetShelfId = this.selectedShelves[0];
+                    await axios.post(`/api/shelves/${targetShelfId}/books/${bookId}`);
                 }
                 
                 // Refresh data
@@ -431,15 +430,120 @@ const app = Vue.createApp({
             }
         },
         
-        async addBookToShelf(book, shelf) {
+        // Book can only be in one shelf at a time
+        async moveBookToShelf(book, targetShelfId, sourceShelfId = null) {
             try {
-                await axios.post(`/api/shelves/${shelf.id}/books/${book.id}`);
+                // First, find all shelves this book is in
+                const currentShelves = [];
+                for (const shelfId in this.booksInShelf) {
+                    const books = this.booksInShelf[shelfId];
+                    if (books.some(b => b.id === book.id)) {
+                        currentShelves.push(shelfId);
+                    }
+                }
+                
+                // Remove book from all current shelves
+                for (const shelfId of currentShelves) {
+                    await axios.delete(`/api/shelves/${shelfId}/books/${book.id}`);
+                    // Update local state immediately
+                    this.booksInShelf[shelfId] = this.booksInShelf[shelfId].filter(b => b.id !== book.id);
+                }
+                
+                // Add to new shelf
+                await axios.post(`/api/shelves/${targetShelfId}/books/${book.id}`);
                 
                 // Refresh the shelf data
-                this.fetchBooksInShelf(shelf.id);
+                await this.fetchBooksInShelf(targetShelfId);
+                
+                // Show feedback 
+                const targetShelf = this.shelves.find(s => s.id === targetShelfId);
+                if (targetShelf) {
+                    console.log(`Moved "${book.title}" to "${targetShelf.name}" shelf`);
+                }
             } catch (error) {
-                console.error('Error adding book to shelf:', error);
+                console.error('Error moving book to shelf:', error);
             }
+        },
+        
+        // Legacy method for compatibility
+        async addBookToShelf(book, shelf) {
+            return this.moveBookToShelf(book, shelf.id);
+        },
+        
+        // Drag and Drop Methods
+        startDrag(event, book, sourceShelf) {
+            // Set data for drag operation
+            this.draggedBook = book;
+            this.draggedSourceShelf = sourceShelf;
+            
+            // Set data transfer
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', JSON.stringify({
+                bookId: book.id,
+                sourceShelf: sourceShelf
+            }));
+            
+            // Add dragging class to the element
+            event.target.classList.add('dragging');
+        },
+        
+        endDrag(event) {
+            // Clean up after drag ends
+            event.target.classList.remove('dragging');
+            
+            // Clear dragged state after a delay (to allow drop handlers to access it)
+            setTimeout(() => {
+                this.draggedBook = null;
+                this.draggedSourceShelf = null;
+            }, 100);
+        },
+        
+        dragEnterShelf(event, shelf) {
+            // Only apply visual feedback if book is being dragged
+            if (this.draggedBook) {
+                event.target.classList.add('drag-over');
+            }
+        },
+        
+        dragLeaveShelf(event) {
+            event.target.classList.remove('drag-over');
+        },
+        
+        dropOnShelf(event, shelf) {
+            event.preventDefault();
+            event.target.classList.remove('drag-over');
+            
+            // Get the dragged book data
+            const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+            
+            if (data && data.bookId) {
+                const book = this.books.find(b => b.id === data.bookId);
+                if (book) {
+                    this.moveBookToShelf(book, shelf.id, data.sourceShelf);
+                }
+            }
+        },
+        
+        dragEnterShelfHeader(event) {
+            if (this.draggedBook) {
+                event.target.classList.add('drag-over');
+            }
+        },
+        
+        dragLeaveShelfHeader(event) {
+            event.target.classList.remove('drag-over');
+        },
+        
+        dropOnShelfHeader(event, shelfName) {
+            event.preventDefault();
+            event.target.classList.remove('drag-over');
+            
+            // Find the shelf by name
+            const shelf = this.shelves.find(s => s.name === shelfName);
+            if (!shelf || !this.draggedBook) return;
+            
+            // Move the book to this shelf
+            this.moveBookToShelf(this.draggedBook, shelf.id, this.draggedSourceShelf);
         }
     },
     mounted() {
