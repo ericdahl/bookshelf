@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt" // Import fmt for error formatting
 	"log"
 	"os"
 	// "path/filepath" // Removed as it was unused
@@ -135,12 +136,25 @@ func AddBook(book models.Book) (int64, error) {
 	return id, nil
 }
 
-import (
-	"database/sql"
-	"fmt" // Import fmt for error formatting
-	"log"
-	"os"
-	// "path/filepath" // Removed as it was unused
+// UpdateBookStatus updates the status of a specific book.
+func UpdateBookStatus(id int64, status string) error {
+	query := "UPDATE books SET status = ? WHERE id = ?"
+	log.Println("Preparing SQL:", query) // Log SQL Prepare
+	stmt, err := DB.Prepare(query)
+	if err != nil {
+		log.Printf("Error preparing query '%s': %v", query, err)
+		return err
+	}
+	defer stmt.Close()
+
+	log.Printf("Executing SQL Update with params: Status=%s, ID=%d", status, id) // Log Params
+	res, err := stmt.Exec(status, id)
+	if err != nil {
+		log.Printf("Error executing update: %v", err)
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
