@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag" // Import flag package
 	"log"
 	"net/http"
 	"os"
@@ -9,10 +10,19 @@ import (
 	"bookshelf/api"
 	"bookshelf/db"
 
-	"github.com/gorilla/mux" // Import gorilla/mux
+	"github.com/gorilla/handlers" // Import handlers for logging
+	"github.com/gorilla/mux"
 )
 
 func main() {
+	// --- CLI Flags ---
+	port := flag.String("port", "8080", "Port to listen on")
+	flag.Parse() // Parse command-line flags
+
+	// If other arguments are provided after parsing flags, treat it like help request?
+	// Or just let the app run. For now, we just parse defined flags.
+	// A more robust help would check for a specific --help flag, but flag package handles -h/-help automatically.
+
 	// Initialize Database
 	if err := db.InitDB(); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
@@ -55,11 +65,14 @@ func main() {
 	fs := http.FileServer(webDir)
 	r.PathPrefix("/").Handler(fs) // Serve static files for any path not matched above
 
+	// --- Logging Middleware ---
+	// Log requests to stdout in Apache Combined Log Format
+	loggedRouter := handlers.LoggingHandler(os.Stdout, r)
+
 	// Start Server
-	port := "8080"
-	log.Printf("Starting server on http://localhost:%s", port)
-	// Use the gorilla/mux router 'r' instead of the default 'mux'
-	if err := http.ListenAndServe(":"+port, r); err != nil {
+	log.Printf("Starting server on http://localhost:%s", *port)
+	// Use the loggedRouter which wraps the original router 'r'
+	if err := http.ListenAndServe(":"+*port, loggedRouter); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }

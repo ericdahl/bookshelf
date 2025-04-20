@@ -48,12 +48,14 @@ func createTables() error {
         title TEXT NOT NULL,
         author TEXT,
         open_library_id TEXT,
+        isbn TEXT NOT NULL, -- Added ISBN field, required
         status TEXT NOT NULL CHECK(status IN ('Want to Read', 'Currently Reading', 'Read')),
         rating INTEGER CHECK(rating >= 1 AND rating <= 10),
         comments TEXT,
         cover_url TEXT
     );`
 
+	log.Println("Executing SQL:", createBooksTableSQL) // Log SQL
 	_, err := DB.Exec(createBooksTableSQL)
 	if err != nil {
 		log.Printf("Error creating books table: %v", err)
@@ -63,10 +65,13 @@ func createTables() error {
 	return nil
 }
 
-// GetAllBooks retrieves all books from the database.
+// GetAllBooks retrieves all books from the database, ordered by title.
 func GetAllBooks() ([]models.Book, error) {
-	rows, err := DB.Query("SELECT id, title, author, open_library_id, status, rating, comments, cover_url FROM books ORDER BY title ASC")
+	query := "SELECT id, title, author, open_library_id, isbn, status, rating, comments, cover_url FROM books ORDER BY title ASC"
+	log.Println("Executing SQL:", query) // Log SQL
+	rows, err := DB.Query(query)
 	if err != nil {
+		log.Printf("Error executing query '%s': %v", query, err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -74,9 +79,10 @@ func GetAllBooks() ([]models.Book, error) {
 	books := []models.Book{}
 	for rows.Next() {
 		var b models.Book
-		// Use pointers for nullable fields when scanning
-		err := rows.Scan(&b.ID, &b.Title, &b.Author, &b.OpenLibraryID, &b.Status, &b.Rating, &b.Comments, &b.CoverURL)
+		// Use pointers for nullable fields (Rating, Comments, CoverURL) when scanning
+		err := rows.Scan(&b.ID, &b.Title, &b.Author, &b.OpenLibraryID, &b.ISBN, &b.Status, &b.Rating, &b.Comments, &b.CoverURL)
 		if err != nil {
+			log.Printf("Error scanning row: %v", err)
 			return nil, err
 		}
 		books = append(books, b)
@@ -89,21 +95,34 @@ func GetAllBooks() ([]models.Book, error) {
 	return books, nil
 }
 
-// AddBook inserts a new book into the database.
+// AddBook inserts a new book into the database. Requires Title and ISBN.
 func AddBook(book models.Book) (int64, error) {
-	stmt, err := DB.Prepare("INSERT INTO books(title, author, open_library_id, status, rating, comments, cover_url) VALUES(?, ?, ?, ?, ?, ?, ?)")
+	// Basic validation at DB layer (could also be done in handler)
+	if book.Title == "" || book.ISBN == "" {
+		log.Printf("Attempted to add book with missing title or ISBN: Title='%s', ISBN='%s'", book.Title, book.ISBN)
+		return 0, fmt.Errorf("book title and ISBN are required")
+	}
+
+	query := "INSERT INTO books(title, author, open_library_id, isbn, status, rating, comments, cover_url) VALUES(?, ?, ?, ?, ?, ?, ?, ?)"
+	log.Println("Preparing SQL:", query) // Log SQL Prepare
+	stmt, err := DB.Prepare(query)
 	if err != nil {
+		log.Printf("Error preparing query '%s': %v", query, err)
 		return 0, err
 	}
 	defer stmt.Close()
 
-	// Use default status if not provided, although the frontend currently sets it
+	// Use default status if not provided
 	if book.Status == "" {
 		book.Status = models.StatusWantToRead
 	}
 
-	res, err := stmt.Exec(book.Title, book.Author, book.OpenLibraryID, book.Status, book.Rating, book.Comments, book.CoverURL)
+	log.Printf("Executing SQL Insert with params: Title=%s, Author=%s, OLID=%s, ISBN=%s, Status=%s, Rating=%v, Comments=%v, CoverURL=%v",
+		book.Title, book.Author, book.OpenLibraryID, book.ISBN, book.Status, book.Rating, book.Comments, book.CoverURL) // Log Params
+
+	res, err := stmt.Exec(book.Title, book.Author, book.OpenLibraryID, book.ISBN, book.Status, book.Rating, book.Comments, book.CoverURL)
 	if err != nil {
+		log.Printf("Error executing insert: %v", err)
 		return 0, err
 	}
 
@@ -116,20 +135,12 @@ func AddBook(book models.Book) (int64, error) {
 	return id, nil
 }
 
-// UpdateBookStatus updates the status of a specific book.
-func UpdateBookStatus(id int64, status string) error {
-	stmt, err := DB.Prepare("UPDATE books SET status = ? WHERE id = ?")
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	res, err := stmt.Exec(status, id)
-	if err != nil {
-		return err
-	}
-
-	rowsAffected, err := res.RowsAffected()
+import (
+	"database/sql"
+	"fmt" // Import fmt for error formatting
+	"log"
+	"os"
+	// "path/filepath" // Removed as it was unused
 	if err != nil {
 		return err
 	}

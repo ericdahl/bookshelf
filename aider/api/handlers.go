@@ -1,7 +1,9 @@
 package api
 
 import (
+	"database/sql" // Import database/sql for ErrNoRows
 	"encoding/json"
+	"fmt" // Import fmt
 	"log"
 	"net/http"
 	"strconv" // Add strconv for parsing ID
@@ -55,11 +57,26 @@ func AddBookHandler(w http.ResponseWriter, r *http.Request) {
 		book.Status = models.StatusWantToRead
 	}
 
+	// TODO: Later, this handler will expect OpenLibraryID and ISBN from search results,
+	// and potentially fetch Author/CoverURL itself if needed.
+	// For now, just ensure the model structure matches for compilation.
+	// We'll add validation for ISBN presence here once the frontend sends it.
+	// if book.ISBN == "" {
+	// 	http.Error(w, "Bad request: ISBN is required (will be obtained from Open Library search)", http.StatusBadRequest)
+	// 	return
+	// }
+
+
 	// Add book to database
-	id, err := db.AddBook(book)
+	id, err := db.AddBook(book) // AddBook now expects ISBN
 	if err != nil {
 		log.Printf("Error adding book to DB: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		// Check for specific errors like the one from AddBook validation
+		if err.Error() == "book title and ISBN are required" {
+			http.Error(w, fmt.Sprintf("Bad request: %v", err), http.StatusBadRequest)
+		} else {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -115,9 +132,8 @@ func UpdateBookHandler(w http.ResponseWriter, r *http.Request) {
 	// Update book status in database
 	err = db.UpdateBookStatus(id, payload.Status)
 	if err != nil {
-		// Handle specific errors like not found if needed
-		// A more robust check might involve errors.Is(err, sql.ErrNoRows) in Go 1.13+
-		if err.Error() == "sql: no rows in result set" { // Simple check, might need refinement
+		// Handle specific errors like not found
+		if err == sql.ErrNoRows { // Use errors.Is(err, sql.ErrNoRows) in Go 1.13+
 			log.Printf("Attempted to update non-existent book ID: %d", id)
 			http.Error(w, "Not found: Book with given ID does not exist", http.StatusNotFound)
 		} else {
