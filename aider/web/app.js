@@ -110,34 +110,28 @@ function setupAddBookForm() {
     // ... existing setup ...
 
     // Use event delegation on the results container
+    searchResultsDiv.addEventListener('click', handleResultSelection); // Add event listener to the container
+}
+
+
+// Renamed and modified to directly add the book
+async function handleResultSelection(event) {
+    // Ensure the click is on an LI element within the results list
+    const selectedLi = event.target.closest('li');
+    if (!selectedLi || !selectedLi.parentElement.classList.contains('search-results-list')) {
+        return; // Click was not on a list item
+    }
+
+    // Disable further clicks while processing
+    const searchResultsDiv = document.getElementById('search-results');
+    searchResultsDiv.style.pointerEvents = 'none'; // Prevent multiple adds
+    selectedLi.style.fontWeight = 'bold'; // Indicate processing
+
+    const bookToAdd = {
         open_library_id: selectedLi.dataset.olid,
         isbn: selectedLi.dataset.isbn,
         title: selectedLi.dataset.title,
-        author: selectedLi.dataset.author,
-        cover_url: selectedLi.dataset.coverUrl,
-    };
-
-    console.log("Selected book:", selectedBook);
-
-    // Populate hidden fields
-    document.getElementById('selected-olid').value = selectedBook.open_library_id;
-    document.getElementById('selected-isbn').value = selectedBook.isbn;
-    document.getElementById('selected-title').value = selectedBook.title;
-    document.getElementById('selected-author').value = selectedBook.author;
-    document.getElementById('selected-cover-url').value = selectedBook.cover_url;
-
-
-    // Update display area
-    const displayDiv = document.getElementById('selected-book-display');
-    displayDiv.textContent = `Selected: ${selectedBook.title} by ${selectedBook.author}`;
-
-    // Enable Add button
-    document.getElementById('add-book-button').disabled = false;
-
-    // Clear search input and results
-    document.getElementById('search-book').value = '';
-    document.getElementById('search-results').innerHTML = '';
-}
+        author: selectedLi.dataset.author || '', // Ensure author is string even if empty
 
 function clearSelection() {
     selectedBook = null;
