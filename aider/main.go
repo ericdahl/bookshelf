@@ -34,10 +34,11 @@ func main() {
 
 	// API Routes
 	apiRouter := r.PathPrefix("/api").Subrouter()
+	apiRouter.HandleFunc("/search", api.SearchOpenLibraryHandler).Methods(http.MethodGet) // New search route
 	apiRouter.HandleFunc("/books", api.GetBooksHandler).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/books", api.AddBookHandler).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/books/{id:[0-9]+}", api.UpdateBookHandler).Methods(http.MethodPut) // Route for updating status
-	// Add other API routes here later (DELETE /api/books/{id}, etc.)
+	apiRouter.HandleFunc("/books/{id:[0-9]+}", api.UpdateBookHandler).Methods(http.MethodPut) // Route for updating status (drag-n-drop)
+	// Add other API routes here later (DELETE /api/books/{id}, PUT /api/books/{id}/details etc.)
 
 	// Frontend Route - Serve static files from 'web' directory
 	// Determine the directory of the executable

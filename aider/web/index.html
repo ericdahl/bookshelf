@@ -26,17 +26,28 @@
 
     <hr>
 
-    <h2>Add New Book</h2>
+    <h2>Add New Book via Open Library Search</h2>
     <form id="add-book-form">
-        <label for="title">Title:</label>
-        <input type="text" id="title" name="title" required><br>
+        <label for="search-book">Search Title/Author:</label>
+        <input type="text" id="search-book" name="search-book" placeholder="e.g., The Hobbit Tolkien" required>
+        <div id="search-results">
+            <!-- Search results will appear here -->
+        </div>
 
-        <label for="author">Author:</label>
-        <input type="text" id="author" name="author"><br>
+        <!-- Hidden fields to store selected book data -->
+        <input type="hidden" id="selected-olid" name="open_library_id">
+        <input type="hidden" id="selected-isbn" name="isbn">
+        <input type="hidden" id="selected-title" name="title">
+        <input type="hidden" id="selected-author" name="author">
+        <input type="hidden" id="selected-cover-url" name="cover_url">
 
-        <!-- Open Library Search/Details will go here later -->
+        <div id="selected-book-display" style="margin-top: 10px; font-style: italic;">
+            <!-- Display selected book info here -->
+        </div>
 
-        <button type="submit">Add Book</button>
+        <!-- Add Rating/Comments inputs later -->
+
+        <button type="submit" id="add-book-button" disabled>Add Selected Book</button>
     </form>
 
     <script src="app.js"></script>

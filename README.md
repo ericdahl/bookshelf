@@ -106,22 +106,47 @@ The backend provides a simple REST API:
         ```
 
 *   **`POST /api/books`**
-    *   Description: Adds a new book to the bookshelf.
-    *   Request Body: JSON object representing the book. `title` is required. `status` defaults to "Want to Read" if not provided.
+    *   Description: Adds a new book to the bookshelf, based on a selection from Open Library search.
+    *   Request Body: JSON object representing the book details obtained from the search selection. `title`, `isbn`, and `open_library_id` are required. `status` defaults to "Want to Read". `author` and `cover_url` are optional but recommended.
         ```json
         {
-          "title": "New Book Title",
-          "author": "Author Name",
+          "title": "The Hobbit",
+          "author": "J. R. R. Tolkien",
+          "open_library_id": "OL7353617M",
+          "isbn": "9780547928227",
+          "cover_url": "https://covers.openlibrary.org/b/id/103187-M.jpg", // Optional
           "status": "Want to Read" // Optional, defaults if omitted
+          // rating and comments will be added later
         }
         ```
     *   Response:
         *   `201 Created`: Success, returns the newly created book object (including its assigned `id`).
-        *   `400 Bad Request`: Invalid JSON or missing required fields.
+        *   `400 Bad Request`: Invalid JSON or missing required fields (`title`, `isbn`, `open_library_id`).
         *   `500 Internal Server Error`: Database error.
 
+*   **`GET /api/search?q={query}`**
+    *   Description: Searches Open Library for books matching the `query` (title/author). Returns a list of simplified book results that include an ISBN.
+    *   Query Parameter: `q` - The search term (URL encoded).
+    *   Response: `200 OK` with a JSON array of search result objects.
+        ```json
+        [
+          {
+            "open_library_id": "OL7353617M",
+            "title": "The Hobbit",
+            "author": "J. R. R. Tolkien",
+            "isbn": "9780547928227", // Example ISBN
+            "cover_url": "https://covers.openlibrary.org/b/id/103187-M.jpg" // Example cover URL
+          },
+          // ... other results
+        ]
+        ```
+    *   Error Responses:
+        *   `400 Bad Request`: Missing `q` parameter.
+        *   `500 Internal Server Error`: Error creating/processing request or decoding response.
+        *   `502 Bad Gateway`: Error contacting Open Library API.
+
 *   **`PUT /api/books/{id}`**
-    *   Description: Updates the status of a specific book (identified by `id`). Primarily used for drag-and-drop functionality.
+    *   Description: Updates the **status** of a specific book (identified by `id`). Primarily used for drag-and-drop functionality.
     *   URL Parameter: `{id}` - The integer ID of the book to update.
     *   Request Body: JSON object containing the new status.
         ```json

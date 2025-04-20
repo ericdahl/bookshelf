@@ -1,14 +1,146 @@
+// --- Debounce Helper ---
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// --- Global Variables / State ---
+let selectedBook = null; // Store details of the selected book from search
+
 document.addEventListener('DOMContentLoaded', () => {
     loadBooks();
-
-    // Add event listener for the form (will be implemented later)
-    const addBookForm = document.getElementById('add-book-form');
-    if (addBookForm) {
-        addBookForm.addEventListener('submit', handleAddBook);
-    } else {
-        console.error("Add book form not found");
-    }
+    setupAddBookForm();
 });
+
+function setupAddBookForm() {
+    const addBookForm = document.getElementById('add-book-form');
+    const searchInput = document.getElementById('search-book');
+    const searchResultsDiv = document.getElementById('search-results');
+    const addBookButton = document.getElementById('add-book-button');
+
+    if (!addBookForm || !searchInput || !searchResultsDiv || !addBookButton) {
+        console.error("Add book form elements not found");
+        return;
+    }
+
+    addBookForm.addEventListener('submit', handleAddBook);
+
+    // Debounced search function
+    const debouncedSearch = debounce(async () => {
+        const query = searchInput.value.trim();
+        if (query.length < 3) { // Only search if query is reasonably long
+            searchResultsDiv.innerHTML = ''; // Clear results
+            return;
+        }
+        await fetchSearchResults(query);
+    }, 300); // 300ms delay
+
+    searchInput.addEventListener('input', debouncedSearch);
+
+    // Clear results if input is cleared
+    searchInput.addEventListener('input', () => {
+        if (searchInput.value.trim() === '') {
+            searchResultsDiv.innerHTML = '';
+            clearSelection();
+        }
+    });
+}
+
+
+async function fetchSearchResults(query) {
+    console.log("Searching Open Library for:", query);
+    const searchResultsDiv = document.getElementById('search-results');
+    searchResultsDiv.innerHTML = '<i>Searching...</i>'; // Provide feedback
+
+    try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const results = await response.json();
+        displaySearchResults(results);
+    } catch (error) {
+        console.error('Error fetching search results:', error);
+        searchResultsDiv.innerHTML = '<i style="color: red;">Error fetching results.</i>';
+    }
+}
+
+function displaySearchResults(results) {
+    const searchResultsDiv = document.getElementById('search-results');
+    searchResultsDiv.innerHTML = ''; // Clear previous results or 'Searching...' message
+
+    if (!results || results.length === 0) {
+        searchResultsDiv.innerHTML = '<i>No results found with ISBN.</i>';
+        return;
+    }
+
+    const ul = document.createElement('ul');
+    ul.classList.add('search-results-list'); // Add class for styling
+
+    results.forEach(book => {
+        const li = document.createElement('li');
+        li.textContent = `${book.title} by ${book.author || 'Unknown Author'} (ISBN: ${book.isbn})`;
+        li.dataset.olid = book.open_library_id;
+        li.dataset.isbn = book.isbn;
+        li.dataset.title = book.title;
+        li.dataset.author = book.author || '';
+        li.dataset.coverUrl = book.cover_url || '';
+        li.addEventListener('click', handleResultSelection);
+        ul.appendChild(li);
+    });
+    searchResultsDiv.appendChild(ul);
+}
+
+function handleResultSelection(event) {
+    const selectedLi = event.target;
+    selectedBook = {
+        open_library_id: selectedLi.dataset.olid,
+        isbn: selectedLi.dataset.isbn,
+        title: selectedLi.dataset.title,
+        author: selectedLi.dataset.author,
+        cover_url: selectedLi.dataset.coverUrl,
+    };
+
+    console.log("Selected book:", selectedBook);
+
+    // Populate hidden fields
+    document.getElementById('selected-olid').value = selectedBook.open_library_id;
+    document.getElementById('selected-isbn').value = selectedBook.isbn;
+    document.getElementById('selected-title').value = selectedBook.title;
+    document.getElementById('selected-author').value = selectedBook.author;
+    document.getElementById('selected-cover-url').value = selectedBook.cover_url;
+
+
+    // Update display area
+    const displayDiv = document.getElementById('selected-book-display');
+    displayDiv.textContent = `Selected: ${selectedBook.title} by ${selectedBook.author}`;
+
+    // Enable Add button
+    document.getElementById('add-book-button').disabled = false;
+
+    // Clear search input and results
+    document.getElementById('search-book').value = '';
+    document.getElementById('search-results').innerHTML = '';
+}
+
+function clearSelection() {
+    selectedBook = null;
+    document.getElementById('selected-olid').value = '';
+    document.getElementById('selected-isbn').value = '';
+    document.getElementById('selected-title').value = '';
+    document.getElementById('selected-author').value = '';
+    document.getElementById('selected-cover-url').value = '';
+    document.getElementById('selected-book-display').textContent = '';
+    document.getElementById('add-book-button').disabled = true;
+}
+
 
 async function loadBooks() {
     console.log("Loading books...");
@@ -80,11 +212,27 @@ function createBookElement(book) {
         div.appendChild(author);
     }
 
+    if (book.isbn) {
+        const isbn = document.createElement('p');
+        isbn.textContent = `ISBN: ${book.isbn}`;
+        isbn.style.fontSize = '0.8em'; // Smaller text for ISBN
+        div.appendChild(isbn);
+    }
+
+    if (book.cover_url) {
+        const cover = document.createElement('img');
+        cover.src = book.cover_url;
+        cover.alt = `Cover of ${book.title}`;
+        cover.style.maxWidth = '50px'; // Simple styling
+        cover.style.float = 'right';
+        div.insertBefore(cover, title); // Insert cover before title
+    }
+
+
     // Add placeholders for rating/comments later
     // if (book.rating) { ... }
     // if (book.comments) { ... }
 
-    // Add drag start listener (will be implemented later)
     // Add drag start listener
     div.addEventListener('dragstart', handleDragStart);
 
@@ -93,19 +241,24 @@ function createBookElement(book) {
 
 async function handleAddBook(event) {
     event.preventDefault(); // Prevent default form submission
-    console.log("Add book form submitted (implementation pending).");
 
-    const titleInput = document.getElementById('title');
-    const authorInput = document.getElementById('author');
+    if (!selectedBook || !selectedBook.open_library_id || !selectedBook.isbn || !selectedBook.title) {
+        alert("Please search and select a book first.");
+        return;
+    }
 
-    const newBook = {
-        title: titleInput.value,
-        author: authorInput.value,
-        status: 'Want to Read', // Default status
-        // Add other fields like open_library_id later
+    console.log("Adding selected book:", selectedBook);
+
+    // Construct the book object to send to the backend
+    const bookToAdd = {
+        open_library_id: selectedBook.open_library_id,
+        isbn: selectedBook.isbn,
+        title: selectedBook.title,
+        author: selectedBook.author,
+        cover_url: selectedBook.cover_url,
+        status: models.StatusWantToRead, // Default status
+        // Add rating and comments here later when those fields exist
     };
-
-    console.log("New book data:", newBook);
 
     // Implement POST request to /api/books
     try {
@@ -114,19 +267,19 @@ async function handleAddBook(event) {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(newBook),
+            body: JSON.stringify(bookToAdd),
         });
         if (!response.ok) {
              const errorText = await response.text(); // Get error details from backend
              throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
         }
-        // Clear form and reload books
-        titleInput.value = '';
-        authorInput.value = '';
+        // Clear selection and reload books
+        clearSelection();
         loadBooks(); // Reload to show the new book
     } catch (error) {
         console.error('Error adding book:', error);
         alert(`Error adding book: ${error.message}`); // Show error to user
+        // Optionally re-enable button or provide other feedback
     }
 }
 
@@ -254,3 +407,11 @@ function getStatusFromColumnId(columnId) {
             return null;
     }
 }
+
+// --- Add models constants to JS for status ---
+// This avoids hardcoding strings in multiple places
+const models = {
+    StatusWantToRead: "Want to Read",
+    StatusCurrentlyReading: "Currently Reading",
+    StatusRead: "Read",
+};

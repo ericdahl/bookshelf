@@ -6,13 +6,146 @@ import (
 	"fmt" // Import fmt
 	"log"
 	"net/http"
+	"net/url" // Import net/url for query escaping
 	"strconv" // Add strconv for parsing ID
+	"strings" // Import strings for joining author names etc.
+	"time"    // Import time for http client timeout
 
 	"bookshelf/db"
 	"bookshelf/models" // Add models import
 
+	"net/url" // Import net/url for query escaping
+	"time"    // Import time for http client timeout
+
 	"github.com/gorilla/mux" // Import gorilla/mux
 )
+
+// Structure for Open Library Search API response (simplified)
+type OpenLibrarySearchResponse struct {
+	Docs []struct {
+		Key         string   `json:"key"` // e.g., "/works/OL45883W" -> extract OLID
+		Title       string   `json:"title"`
+		AuthorName  []string `json:"author_name"`
+		ISBN        []string `json:"isbn"` // Can have multiple ISBNs (10, 13)
+		CoverI      int      `json:"cover_i"` // Cover ID, can be used to build cover URL
+	} `json:"docs"`
+}
+
+// Structure for simplified search results returned to our frontend
+type BookSearchResult struct {
+	OpenLibraryID string `json:"open_library_id"`
+	Title         string `json:"title"`
+	Author        string `json:"author"` // Combined author names
+	ISBN          string `json:"isbn"`   // First valid ISBN found
+	CoverURL      string `json:"cover_url"` // Optional cover URL
+}
+
+
+// --- HTTP Client for Open Library ---
+// Reuse a client for better performance
+var openLibraryClient = &http.Client{
+	Timeout: 10 * time.Second, // Set a reasonable timeout
+}
+
+// SearchOpenLibraryHandler handles requests to search books on Open Library.
+func SearchOpenLibraryHandler(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		http.Error(w, "Bad request: Missing query parameter 'q'", http.StatusBadRequest)
+		return
+	}
+
+	// Construct Open Library API URL
+	// We request fields: key, title, author_name, isbn, cover_i
+	apiURL := fmt.Sprintf("https://openlibrary.org/search.json?q=%s&fields=key,title,author_name,isbn,cover_i&limit=10", url.QueryEscape(query))
+	log.Printf("Querying Open Library: %s", apiURL)
+
+	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
+	if err != nil {
+		log.Printf("Error creating Open Library request: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	req.Header.Add("Accept", "application/json") // Ensure we get JSON
+
+	resp, err := openLibraryClient.Do(req)
+	if err != nil {
+		log.Printf("Error querying Open Library: %v", err)
+		http.Error(w, "Error contacting Open Library", http.StatusBadGateway) // 502 Bad Gateway might be appropriate
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Open Library API returned non-OK status: %d", resp.StatusCode)
+		http.Error(w, "Error response from Open Library", http.StatusBadGateway)
+		return
+	}
+
+	var olResponse OpenLibrarySearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&olResponse); err != nil {
+		log.Printf("Error decoding Open Library response: %v", err)
+		http.Error(w, "Error processing Open Library response", http.StatusInternalServerError)
+		return
+	}
+
+	// Process results: Filter for books with ISBN and simplify
+	results := []BookSearchResult{}
+	for _, doc := range olResponse.Docs {
+		var primaryISBN string
+		// Find the first valid ISBN (prefer 13-digit if available, otherwise first 10-digit)
+		for _, isbn := range doc.ISBN {
+			if len(isbn) == 13 { // Basic check for ISBN-13
+				primaryISBN = isbn
+				break
+			}
+		}
+		if primaryISBN == "" && len(doc.ISBN) > 0 {
+			for _, isbn := range doc.ISBN {
+				if len(isbn) == 10 { // Basic check for ISBN-10
+					primaryISBN = isbn
+					break
+				}
+			}
+		}
+
+		// Only include results that have an ISBN
+		if primaryISBN != "" && doc.Title != "" {
+			olid := ""
+			// Extract OLID from key like "/works/OL45883W" or "/books/OL7353617M"
+			parts := strings.Split(doc.Key, "/")
+			if len(parts) > 0 {
+				olid = parts[len(parts)-1]
+			}
+
+			author := ""
+			if len(doc.AuthorName) > 0 {
+				author = strings.Join(doc.AuthorName, ", ")
+			}
+
+			coverURL := ""
+			if doc.CoverI > 0 {
+				// Construct cover URL (medium size)
+				coverURL = fmt.Sprintf("https://covers.openlibrary.org/b/id/%d-M.jpg", doc.CoverI)
+			}
+
+
+			results = append(results, BookSearchResult{
+				OpenLibraryID: olid,
+				Title:         doc.Title,
+				Author:        author,
+				ISBN:          primaryISBN,
+				CoverURL:      coverURL,
+			})
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		log.Printf("Error encoding search results to JSON: %v", err)
+	}
+}
+
 
 // GetBooksHandler handles GET requests to retrieve all books.
 func GetBooksHandler(w http.ResponseWriter, r *http.Request) {
@@ -47,31 +180,26 @@ func AddBookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// Basic validation (can be expanded)
-	if book.Title == "" {
-		http.Error(w, "Bad request: Title is required", http.StatusBadRequest)
+	// Validation: Frontend should now send title, author, isbn, open_library_id
+	// derived from the Open Library search selection.
+	if book.Title == "" || book.ISBN == "" || book.OpenLibraryID == "" {
+		errMsg := fmt.Sprintf("Bad request: Missing required fields from selection (Title: '%s', ISBN: '%s', OLID: '%s')", book.Title, book.ISBN, book.OpenLibraryID)
+		log.Println(errMsg)
+		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
-	// Ensure default status if not provided by client (though frontend does)
+
+	// Set default status if not provided (though frontend should default to 'Want to Read')
 	if book.Status == "" {
 		book.Status = models.StatusWantToRead
 	}
 
-	// TODO: Later, this handler will expect OpenLibraryID and ISBN from search results,
-	// and potentially fetch Author/CoverURL itself if needed.
-	// For now, just ensure the model structure matches for compilation.
-	// We'll add validation for ISBN presence here once the frontend sends it.
-	// if book.ISBN == "" {
-	// 	http.Error(w, "Bad request: ISBN is required (will be obtained from Open Library search)", http.StatusBadRequest)
-	// 	return
-	// }
-
-
-	// Add book to database
-	id, err := db.AddBook(book) // AddBook now expects ISBN
+	// Add book to database using the details obtained from the search selection
+	// The db.AddBook function already expects a models.Book object.
+	id, err := db.AddBook(book)
 	if err != nil {
 		log.Printf("Error adding book to DB: %v", err)
-		// Check for specific errors like the one from AddBook validation
+		// Check for specific validation errors from db.AddBook
 		if err.Error() == "book title and ISBN are required" {
 			http.Error(w, fmt.Sprintf("Bad request: %v", err), http.StatusBadRequest)
 		} else {

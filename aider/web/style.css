@@ -89,3 +89,36 @@ h1, h2 {
 #add-book-form button:hover {
     background-color: #4cae4c;
 }
+
+#add-book-form button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+#search-results {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    margin-top: 5px;
+    background-color: #fff;
+}
+
+.search-results-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.search-results-list li {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+
+.search-results-list li:last-child {
+    border-bottom: none;
+}
+
+.search-results-list li:hover {
+    background-color: #f0f0f0;
+}
