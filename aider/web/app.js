@@ -9,10 +9,11 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
     };
-}
+// --- Debounce Helper ---
+// ... (debounce function remains the same) ...
 
 // --- Global Variables / State ---
-let selectedBook = null; // Store details of the selected book from search
+// let selectedBook = null; // No longer needed, selection triggers immediate add
 
 document.addEventListener('DOMContentLoaded', () => {
     loadBooks();
@@ -30,7 +31,8 @@ function setupAddBookForm() {
         return;
     }
 
-    addBookForm.addEventListener('submit', handleAddBook);
+    // Remove form submit listener as adding happens on result click
+    // addBookForm.addEventListener('submit', handleAddBook);
 
     // Debounced search function
     const debouncedSearch = debounce(async () => {
@@ -87,20 +89,27 @@ function displaySearchResults(results) {
     results.forEach(book => {
         const li = document.createElement('li');
         li.textContent = `${book.title} by ${book.author || 'Unknown Author'} (ISBN: ${book.isbn})`;
+        // Store data directly on the element for handleResultSelection to retrieve
         li.dataset.olid = book.open_library_id;
         li.dataset.isbn = book.isbn;
         li.dataset.title = book.title;
         li.dataset.author = book.author || '';
         li.dataset.coverUrl = book.cover_url || '';
-        li.addEventListener('click', handleResultSelection);
+        // No individual click listener needed here anymore due to event delegation
+        // li.addEventListener('click', handleResultSelection);
         ul.appendChild(li);
     });
-    searchResultsDiv.appendChild(ul);
+    searchResultsDiv.appendChild(ul); // Add the list to the DOM
+    searchResultsDiv.style.pointerEvents = 'auto'; // Ensure clicks are enabled after displaying results
 }
 
-function handleResultSelection(event) {
-    const selectedLi = event.target;
-    selectedBook = {
+// Use event delegation on the results container
+function setupAddBookForm() {
+    // ... existing setup ...
+    const searchResultsDiv = document.getElementById('search-results');
+    // ... existing setup ...
+
+    // Use event delegation on the results container
         open_library_id: selectedLi.dataset.olid,
         isbn: selectedLi.dataset.isbn,
         title: selectedLi.dataset.title,
@@ -281,49 +290,7 @@ function createBookElement(book) {
     return div;
 }
 
-async function handleAddBook(event) {
-    event.preventDefault(); // Prevent default form submission
-
-    if (!selectedBook || !selectedBook.open_library_id || !selectedBook.isbn || !selectedBook.title) {
-        alert("Please search and select a book first.");
-        return;
-    }
-
-    console.log("Adding selected book:", selectedBook);
-
-    // Construct the book object to send to the backend
-    const bookToAdd = {
-        open_library_id: selectedBook.open_library_id,
-        isbn: selectedBook.isbn,
-        title: selectedBook.title,
-        author: selectedBook.author,
-        cover_url: selectedBook.cover_url,
-        status: models.StatusCurrentlyReading, // Default status to Currently Reading
-        // Add rating and comments here later when those fields exist
-    };
-
-    // Implement POST request to /api/books
-    try {
-        const response = await fetch('/api/books', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(bookToAdd),
-        });
-        if (!response.ok) {
-             const errorText = await response.text(); // Get error details from backend
-             throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-        }
-        // Clear selection and reload books
-        clearSelection();
-        loadBooks(); // Reload to show the new book
-    } catch (error) {
-        console.error('Error adding book:', error);
-        alert(`Error adding book: ${error.message}`); // Show error to user
-        // Optionally re-enable button or provide other feedback
-    }
-}
+// async function handleAddBook(event) { ... } // No longer needed as form submission isn't used for adding
 
 // --- Drag and Drop Functions ---
 
