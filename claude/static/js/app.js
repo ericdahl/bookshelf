@@ -7,7 +7,14 @@ const app = Vue.createApp({
             newBook: {
                 title: '',
                 author: '',
-                rating: 0
+                rating: 0,
+                open_library_id: '',
+                isbn: '',
+                cover_id: '',
+                publish_year: 0,
+                publisher: '',
+                page_count: 0,
+                description: ''
             },
             editingBook: null,
             bookToDelete: null,
@@ -23,7 +30,13 @@ const app = Vue.createApp({
             showToast: false,
             // Drag and drop state
             draggedBook: null,
-            draggedSourceShelf: null
+            draggedSourceShelf: null,
+            // Open Library search
+            bookSearchQuery: '',
+            searchResults: [],
+            isSearching: false,
+            selectedOpenLibraryBook: null,
+            isManualEntry: false
         }
     },
     computed: {

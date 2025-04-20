@@ -38,7 +38,14 @@ func createTables() {
 		author TEXT NOT NULL,
 		rating REAL,
 		created_at TIMESTAMP,
-		updated_at TIMESTAMP
+		updated_at TIMESTAMP,
+		open_library_id TEXT,
+		isbn TEXT,
+		cover_id TEXT,
+		publish_year INTEGER,
+		publisher TEXT,
+		page_count INTEGER,
+		description TEXT
 	);`
 
 	// Shelves table

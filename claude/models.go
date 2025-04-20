@@ -1,17 +1,25 @@
 package main
 
 import (
+	"database/sql"
 	"time"
 )
 
 // DbBook represents a book as stored in the database
 type DbBook struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title"`
-	Author    string    `json:"author"`
-	Rating    float64   `json:"rating"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID            string    `json:"id"`
+	Title         string    `json:"title"`
+	Author        string    `json:"author"`
+	Rating        float64   `json:"rating"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	OpenLibraryID string    `json:"open_library_id,omitempty"`
+	ISBN          string    `json:"isbn,omitempty"`
+	CoverID       string    `json:"cover_id,omitempty"`
+	PublishYear   int       `json:"publish_year,omitempty"`
+	Publisher     string    `json:"publisher,omitempty"`
+	PageCount     int       `json:"page_count,omitempty"`
+	Description   string    `json:"description,omitempty"`
 }
 
 // Shelf represents a book shelf or collection
@@ -23,8 +31,8 @@ type Shelf struct {
 
 // GetAllBooks retrieves all books from the database
 func GetAllBooks() ([]DbBook, error) {
-	LogQuery("SELECT id, title, author, rating, created_at, updated_at FROM books")
-	rows, err := DB.Query("SELECT id, title, author, rating, created_at, updated_at FROM books")
+	LogQuery("SELECT id, title, author, rating, created_at, updated_at, open_library_id, isbn, cover_id, publish_year, publisher, page_count, description FROM books")
+	rows, err := DB.Query("SELECT id, title, author, rating, created_at, updated_at, open_library_id, isbn, cover_id, publish_year, publisher, page_count, description FROM books")
 	if err != nil {
 		return nil, err
 	}
@@ -33,10 +41,41 @@ func GetAllBooks() ([]DbBook, error) {
 	books := []DbBook{}
 	for rows.Next() {
 		var book DbBook
-		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.Rating, &book.CreatedAt, &book.UpdatedAt)
+		var openLibraryID, isbn, coverID, publisher, description sql.NullString
+		var publishYear, pageCount sql.NullInt64
+		
+		err := rows.Scan(
+			&book.ID, &book.Title, &book.Author, &book.Rating, 
+			&book.CreatedAt, &book.UpdatedAt, &openLibraryID, &isbn,
+			&coverID, &publishYear, &publisher, &pageCount, &description,
+		)
 		if err != nil {
 			return nil, err
 		}
+		
+		// Handle nullable fields
+		if openLibraryID.Valid {
+			book.OpenLibraryID = openLibraryID.String
+		}
+		if isbn.Valid {
+			book.ISBN = isbn.String
+		}
+		if coverID.Valid {
+			book.CoverID = coverID.String
+		}
+		if publishYear.Valid {
+			book.PublishYear = int(publishYear.Int64)
+		}
+		if publisher.Valid {
+			book.Publisher = publisher.String
+		}
+		if pageCount.Valid {
+			book.PageCount = int(pageCount.Int64)
+		}
+		if description.Valid {
+			book.Description = description.String
+		}
+		
 		books = append(books, book)
 	}
 
@@ -46,11 +85,41 @@ func GetAllBooks() ([]DbBook, error) {
 // GetBookByID retrieves a book by its ID
 func GetBookByID(id string) (DbBook, error) {
 	var book DbBook
-	LogQuery("SELECT id, title, author, rating, created_at, updated_at FROM books WHERE id = ?", id)
-	err := DB.QueryRow("SELECT id, title, author, rating, created_at, updated_at FROM books WHERE id = ?", id).
-		Scan(&book.ID, &book.Title, &book.Author, &book.Rating, &book.CreatedAt, &book.UpdatedAt)
+	var openLibraryID, isbn, coverID, publisher, description sql.NullString
+	var publishYear, pageCount sql.NullInt64
+	
+	LogQuery("SELECT id, title, author, rating, created_at, updated_at, open_library_id, isbn, cover_id, publish_year, publisher, page_count, description FROM books WHERE id = ?", id)
+	err := DB.QueryRow("SELECT id, title, author, rating, created_at, updated_at, open_library_id, isbn, cover_id, publish_year, publisher, page_count, description FROM books WHERE id = ?", id).
+		Scan(
+			&book.ID, &book.Title, &book.Author, &book.Rating, 
+			&book.CreatedAt, &book.UpdatedAt, &openLibraryID, &isbn,
+			&coverID, &publishYear, &publisher, &pageCount, &description,
+		)
 	if err != nil {
 		return DbBook{}, err
+	}
+	
+	// Handle nullable fields
+	if openLibraryID.Valid {
+		book.OpenLibraryID = openLibraryID.String
+	}
+	if isbn.Valid {
+		book.ISBN = isbn.String
+	}
+	if coverID.Valid {
+		book.CoverID = coverID.String
+	}
+	if publishYear.Valid {
+		book.PublishYear = int(publishYear.Int64)
+	}
+	if publisher.Valid {
+		book.Publisher = publisher.String
+	}
+	if pageCount.Valid {
+		book.PageCount = int(pageCount.Int64)
+	}
+	if description.Valid {
+		book.Description = description.String
 	}
 
 	return book, nil
@@ -62,10 +131,19 @@ func AddBook(book DbBook) error {
 	book.CreatedAt = now
 	book.UpdatedAt = now
 
-	LogQuery("INSERT INTO books (id, title, author, rating, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-		book.ID, book.Title, book.Author, book.Rating, book.CreatedAt, book.UpdatedAt)
-	_, err := DB.Exec("INSERT INTO books (id, title, author, rating, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-		book.ID, book.Title, book.Author, book.Rating, book.CreatedAt, book.UpdatedAt)
+	LogQuery(`INSERT INTO books (
+		id, title, author, rating, created_at, updated_at, 
+		open_library_id, isbn, cover_id, publish_year, publisher, page_count, description
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		book.ID, book.Title, book.Author, book.Rating, book.CreatedAt, book.UpdatedAt,
+		book.OpenLibraryID, book.ISBN, book.CoverID, book.PublishYear, book.Publisher, book.PageCount, book.Description)
+	
+	_, err := DB.Exec(`INSERT INTO books (
+		id, title, author, rating, created_at, updated_at, 
+		open_library_id, isbn, cover_id, publish_year, publisher, page_count, description
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		book.ID, book.Title, book.Author, book.Rating, book.CreatedAt, book.UpdatedAt,
+		book.OpenLibraryID, book.ISBN, book.CoverID, book.PublishYear, book.Publisher, book.PageCount, book.Description)
 	return err
 }
 
@@ -73,10 +151,23 @@ func AddBook(book DbBook) error {
 func UpdateBook(book DbBook) error {
 	book.UpdatedAt = time.Now()
 
-	LogQuery("UPDATE books SET title = ?, author = ?, rating = ?, updated_at = ? WHERE id = ?",
-		book.Title, book.Author, book.Rating, book.UpdatedAt, book.ID)
-	_, err := DB.Exec("UPDATE books SET title = ?, author = ?, rating = ?, updated_at = ? WHERE id = ?",
-		book.Title, book.Author, book.Rating, book.UpdatedAt, book.ID)
+	LogQuery(`UPDATE books SET 
+		title = ?, author = ?, rating = ?, updated_at = ?,
+		open_library_id = ?, isbn = ?, cover_id = ?, publish_year = ?,
+		publisher = ?, page_count = ?, description = ?
+		WHERE id = ?`,
+		book.Title, book.Author, book.Rating, book.UpdatedAt,
+		book.OpenLibraryID, book.ISBN, book.CoverID, book.PublishYear,
+		book.Publisher, book.PageCount, book.Description, book.ID)
+	
+	_, err := DB.Exec(`UPDATE books SET 
+		title = ?, author = ?, rating = ?, updated_at = ?,
+		open_library_id = ?, isbn = ?, cover_id = ?, publish_year = ?,
+		publisher = ?, page_count = ?, description = ?
+		WHERE id = ?`,
+		book.Title, book.Author, book.Rating, book.UpdatedAt,
+		book.OpenLibraryID, book.ISBN, book.CoverID, book.PublishYear,
+		book.Publisher, book.PageCount, book.Description, book.ID)
 	return err
 }
 
@@ -138,14 +229,16 @@ func RemoveBookFromShelf(bookID, shelfID string) error {
 // GetBooksInShelf retrieves all books in a specific shelf
 func GetBooksInShelf(shelfID string) ([]DbBook, error) {
 	LogQuery(`
-		SELECT b.id, b.title, b.author, b.rating, b.created_at, b.updated_at
+		SELECT b.id, b.title, b.author, b.rating, b.created_at, b.updated_at, 
+		b.open_library_id, b.isbn, b.cover_id, b.publish_year, b.publisher, b.page_count, b.description
 		FROM books b
 		JOIN book_shelves bs ON b.id = bs.book_id
 		WHERE bs.shelf_id = ?
 	`, shelfID)
 
 	rows, err := DB.Query(`
-		SELECT b.id, b.title, b.author, b.rating, b.created_at, b.updated_at
+		SELECT b.id, b.title, b.author, b.rating, b.created_at, b.updated_at,
+		b.open_library_id, b.isbn, b.cover_id, b.publish_year, b.publisher, b.page_count, b.description
 		FROM books b
 		JOIN book_shelves bs ON b.id = bs.book_id
 		WHERE bs.shelf_id = ?
@@ -159,10 +252,41 @@ func GetBooksInShelf(shelfID string) ([]DbBook, error) {
 	books := []DbBook{}
 	for rows.Next() {
 		var book DbBook
-		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.Rating, &book.CreatedAt, &book.UpdatedAt)
+		var openLibraryID, isbn, coverID, publisher, description sql.NullString
+		var publishYear, pageCount sql.NullInt64
+		
+		err := rows.Scan(
+			&book.ID, &book.Title, &book.Author, &book.Rating, 
+			&book.CreatedAt, &book.UpdatedAt, &openLibraryID, &isbn,
+			&coverID, &publishYear, &publisher, &pageCount, &description,
+		)
 		if err != nil {
 			return nil, err
 		}
+		
+		// Handle nullable fields
+		if openLibraryID.Valid {
+			book.OpenLibraryID = openLibraryID.String
+		}
+		if isbn.Valid {
+			book.ISBN = isbn.String
+		}
+		if coverID.Valid {
+			book.CoverID = coverID.String
+		}
+		if publishYear.Valid {
+			book.PublishYear = int(publishYear.Int64)
+		}
+		if publisher.Valid {
+			book.Publisher = publisher.String
+		}
+		if pageCount.Valid {
+			book.PageCount = int(pageCount.Int64)
+		}
+		if description.Valid {
+			book.Description = description.String
+		}
+		
 		books = append(books, book)
 	}
 

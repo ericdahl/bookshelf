@@ -48,6 +48,10 @@ func main() {
 	router.HandleFunc("/api/shelves/{shelfId}/books/{bookId}", AddBookToShelfHandler).Methods("POST")
 	router.HandleFunc("/api/shelves/{shelfId}/books/{bookId}", RemoveBookFromShelfHandler).Methods("DELETE")
 	
+	// Open Library API routes
+	router.HandleFunc("/api/openlibrary/search", SearchOpenLibraryHandler).Methods("GET")
+	router.HandleFunc("/api/openlibrary/book/{id}", GetOpenLibraryBookHandler).Methods("GET")
+	
 	// Serve static files for the web UI
 	fs := http.FileServer(http.Dir("./static"))
 	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))

@@ -3,7 +3,11 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -199,4 +203,117 @@ func GetBooksInShelfHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(books)
+}
+
+// OpenLibraryBookResponse represents a book result from the Open Library API
+type OpenLibraryBookResponse struct {
+	Key         string   `json:"key"`
+	Title       string   `json:"title"`
+	AuthorName  []string `json:"author_name,omitempty"`
+	ISBN        []string `json:"isbn,omitempty"`
+	CoverID     int      `json:"cover_i,omitempty"`
+	PublishYear int      `json:"first_publish_year,omitempty"`
+	Publisher   []string `json:"publisher,omitempty"`
+}
+
+// OpenLibrarySearchResponse represents the search response from the Open Library API
+type OpenLibrarySearchResponse struct {
+	NumFound int                     `json:"numFound"`
+	Start    int                     `json:"start"`
+	Docs     []OpenLibraryBookResponse `json:"docs"`
+}
+
+// SearchOpenLibraryHandler handles search requests to the Open Library API
+func SearchOpenLibraryHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Query parameter 'q' is required"})
+		return
+	}
+	
+	// Make request to Open Library API
+	escapedQuery := url.QueryEscape(query)
+	apiURL := fmt.Sprintf("https://openlibrary.org/search.json?q=%s&limit=10", escapedQuery)
+	
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to connect to Open Library API"})
+		return
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Open Library API returned an error"})
+		return
+	}
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to read response from Open Library API"})
+		return
+	}
+	
+	var olResponse OpenLibrarySearchResponse
+	if err := json.Unmarshal(body, &olResponse); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to parse response from Open Library API"})
+		return
+	}
+	
+	// Format and send back the results
+	json.NewEncoder(w).Encode(olResponse.Docs)
+}
+
+// GetOpenLibraryBookHandler gets detailed information about a specific Open Library book
+func GetOpenLibraryBookHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	
+	params := mux.Vars(r)
+	bookID := params["id"]
+	if bookID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Book ID is required"})
+		return
+	}
+	
+	// Remove any path prefix
+	bookID = strings.TrimPrefix(bookID, "/works/")
+	apiURL := fmt.Sprintf("https://openlibrary.org/works/%s.json", bookID)
+	
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to connect to Open Library API"})
+		return
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Open Library API returned an error"})
+		return
+	}
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to read response from Open Library API"})
+		return
+	}
+	
+	// Pass through the raw response for the frontend to parse
+	var rawResponse map[string]interface{}
+	if err := json.Unmarshal(body, &rawResponse); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to parse response from Open Library API"})
+		return
+	}
+	
+	json.NewEncoder(w).Encode(rawResponse)
 }
