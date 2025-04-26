@@ -3,6 +3,7 @@ package api
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -36,9 +37,9 @@ func SetupRouter(apiHandler *APIHandler, webDir string) *mux.Router {
 	apiRouter := r.PathPrefix("/api").Subrouter()
 	apiRouter.HandleFunc("/books", apiHandler.GetBooksHandler).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/books", apiHandler.AddBookHandler).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/books/{id:[0-9]+}", apiHandler.UpdateBookStatusHandler).Methods(http.MethodPut) // For status update
+	apiRouter.HandleFunc("/books/{id:[0-9]+}", apiHandler.UpdateBookStatusHandler).Methods(http.MethodPut)          // For status update
 	apiRouter.HandleFunc("/books/{id:[0-9]+}/details", apiHandler.UpdateBookDetailsHandler).Methods(http.MethodPut) // For rating/comments
-	apiRouter.HandleFunc("/search", apiHandler.SearchBooksHandler).Methods(http.MethodGet) // Expects ?q=query
+	apiRouter.HandleFunc("/search", apiHandler.SearchBooksHandler).Methods(http.MethodGet)                          // Expects ?q=query
 
 	// TODO: Add DELETE /api/books/{id} route later
 
@@ -49,7 +50,6 @@ func SetupRouter(apiHandler *APIHandler, webDir string) *mux.Router {
 	fs := http.FileServer(http.Dir(webDir))
 	// Use NoDirListing handler to prevent directory browsing
 	r.PathPrefix("/").Handler(NoDirListing(fs))
-
 
 	log.Println("Router setup complete.")
 	return r
