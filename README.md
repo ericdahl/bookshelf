@@ -1,93 +1,102 @@
-# vibe-books
-
-"Vibe Coding" - AI generated code - to create a book tracking app:
-
-## Stack
-
-- web based
-- backend API in golang
-- storage in local sqlite DB
-
-## Features
-
-- add books to shelf (read, for later, etc)
 # Bookshelf Web Application
 
-A simple web application to manage a personal bookshelf, built with Go (backend) and vanilla JavaScript (frontend).
+A web application to manage a personal bookshelf, built with Go (backend API) and vanilla JavaScript (frontend) using the Pico.css framework and SortableJS for drag-and-drop. Books are searched via the Open Library API and stored locally in an SQLite database.
 
 ## Features
 
-*   View books categorized by status: "Want to Read", "Currently Reading", "Read".
-*   Add new books with title and author.
-*   Update book status by dragging and dropping between columns.
-*   Data persistence using SQLite.
+*   **View Books:** Display books categorized by status: "Want to Read", "Currently Reading", "Read".
+*   **Search & Add Books:** Search the Open Library API by title/author and add selected books to the "Want to Read" shelf.
+*   **Update Status:** Drag and drop books between status columns to update their status.
+*   **Edit Details:** Update a book's rating (1-10) and add personal comments via a modal dialog.
+*   **Data Persistence:** Book data is stored in a local SQLite database (`bookshelf.db` by default).
+*   **Basic Logging:** HTTP requests and SQL operations are logged to standard output.
 
 ## Project Structure
 
 ```
-.
-├── api/
-│   └── handlers.go      # API request handlers
-├── db/
-│   └── database.go      # Database interaction logic (SQLite)
-├── models/
-│   └── book.go          # Data structures (Book model)
-├── web/
-│   ├── index.html       # Main HTML page
-│   ├── style.css        # CSS styles
-│   └── app.js           # Frontend JavaScript logic
-├── go.mod               # Go module definition
-├── go.sum               # Go module checksums
-├── main.go              # Main application entry point, server setup
-└── bookshelf.db         # SQLite database file (created on first run)
+bookshelf/
+├── cmd/
+│   └── server/
+│       └── main.go         # Entrypoint: setup server, db, routes, flags
+├── internal/
+│   ├── api/
+│   │   ├── handler.go      # HTTP handlers (GET /books, POST /books, PUT /books/{id}, etc.)
+│   │   └── routes.go       # Router setup (using gorilla/mux), middleware
+│   ├── db/
+│   │   ├── db.go           # DB connection (SQLite) and schema creation
+│   │   └── book_store.go   # CRUD operations interface and implementation for books
+│   └── model/
+│       └── book.go         # Book struct, Status enum, validation
+├── web/                    # Static frontend assets
+│   ├── index.html          # Main HTML page (using Pico.css)
+│   ├── main.js             # Frontend JavaScript logic (API calls, DOM manipulation, SortableJS)
+│   └── style.css           # Custom CSS styles (minimal, complements Pico.css)
+├── go.mod                  # Go module definition
+├── go.sum                  # Go module checksums
+└── bookshelf.db            # SQLite database file (created on first run if it doesn't exist)
+└── README.md               # This file
 ```
 
 ## Setup and Running
 
 1.  **Prerequisites:**
-    *   Go (version 1.18 or later recommended)
+    *   Go (version 1.21 or later recommended)
     *   Git
 
 2.  **Clone the repository:**
     ```bash
-    git clone <repository-url>
+    # Replace with your actual repository URL if applicable
+    git clone https://github.com/your-username/bookshelf.git
     cd bookshelf
     ```
 
-3.  **Build the application:**
-    This command compiles the Go code and places the executable in the project root (or GOPATH/bin depending on your setup). It also copies the `web` directory next to the executable, which is necessary for serving static files correctly after building.
-    ```bash
-    go build -o bookshelf .
-    # Ensure the 'web' directory is copied next to the executable if building outside the source dir
-    # If 'bookshelf' executable is in the root, this step might not be needed,
-    # but it's good practice for deployment.
-    # Example (if needed, adjust paths): cp -R web /path/to/executable/
-    ```
-    *Alternatively, for development:* You can run directly without building using:
-    ```bash
-    go run main.go
-    ```
-    This usually works fine as the `web` directory is found relative to the current working directory.
+3.  **Replace Module Path:**
+    *   Edit the `go.mod` file and replace `github.com/your-username/bookshelf` with your actual Go module path if you plan to host or modify it significantly.
+    *   Update the import paths in `.go` files under `internal/` and `cmd/` accordingly if you changed the module path.
 
-4.  **Run the application:**
-    *If built:*
+4.  **Install Dependencies:**
     ```bash
-    ./bookshelf
-    ```
-    *If using `go run`:*
-    ```bash
-    go run main.go
+    go mod tidy
     ```
 
-5.  **Access the application:**
-    Open your web browser and navigate to `http://localhost:8080`.
+5.  **Build the application (Optional):**
+    This command compiles the Go code into a single executable named `bookshelf` in the project root.
+    ```bash
+    go build -o bookshelf ./cmd/server/main.go
+    ```
+    *Note:* The server expects the `web` directory to be present in the *current working directory* when running the executable, unless specified otherwise with the `--web-dir` flag.
+
+6.  **Run the application:**
+    *   **Using `go run` (for development):**
+        This command compiles and runs the application directly. The `web` directory and `bookshelf.db` (if it exists) will be relative to the project root.
+        ```bash
+        go run ./cmd/server/main.go
+        ```
+    *   **Using the built executable:**
+        Make sure you are in the project root directory (where the `web` directory is located).
+        ```bash
+        ./bookshelf
+        ```
+    *   **Command-line Flags:**
+        *   `--port <number>`: Specify the port number (default: `8080`).
+        *   `--db-file <path>`: Specify the path to the SQLite database file (default: `./bookshelf.db`).
+        *   `--web-dir <path>`: Specify the directory containing static web assets (default: `./web`).
+        *   `--help`: Show help message.
+        Example:
+        ```bash
+        go run ./cmd/server/main.go --port 9000 --db-file /data/my_books.db
+        ./bookshelf --port 9000 --db-file /data/my_books.db
+        ```
+
+7.  **Access the application:**
+    Open your web browser and navigate to `http://localhost:<port>` (e.g., `http://localhost:8080` if using the default port).
 
 ## API Documentation
 
-The backend provides a simple REST API:
+The backend provides a RESTful API under the `/api` prefix:
 
 *   **`GET /api/books`**
-    *   Description: Retrieves all books from the bookshelf.
+    *   Description: Retrieves all books currently on the bookshelf, ordered by title.
     *   Response: `200 OK` with a JSON array of book objects.
         ```json
         [
@@ -96,36 +105,36 @@ The backend provides a simple REST API:
             "title": "The Go Programming Language",
             "author": "Alan A. A. Donovan, Brian W. Kernighan",
             "open_library_id": "OL26248016M",
+            "isbn": "9780134190440",
             "status": "Read",
-            "rating": 9,
-            "comments": "Excellent reference.",
-            "cover_url": null
+            "rating": 9, // Can be null
+            "comments": "Excellent reference.", // Can be null
+            "cover_url": "https://covers.openlibrary.org/b/id/8264891-M.jpg" // Can be null
           },
           // ... other books
         ]
         ```
 
 *   **`POST /api/books`**
-    *   Description: Adds a new book to the bookshelf, based on a selection from Open Library search.
-    *   Request Body: JSON object representing the book details obtained from the search selection. `title`, `isbn`, and `open_library_id` are required. `status` defaults to "Want to Read". `author` and `cover_url` are optional but recommended.
+    *   Description: Adds a new book to the bookshelf, typically based on a selection from an Open Library search result. The book is added with status "Want to Read" by default.
+    *   Request Body: JSON object with book details. `title` and `open_library_id` are required. `author`, `isbn`, and `cover_url` are recommended. `status` can be optionally provided but defaults to "Want to Read". `rating` and `comments` are ignored (set to null initially).
         ```json
         {
           "title": "The Hobbit",
           "author": "J. R. R. Tolkien",
           "open_library_id": "OL7353617M",
-          "isbn": "9780547928227",
-          "cover_url": "https://covers.openlibrary.org/b/id/103187-M.jpg", // Optional
-          "status": "Want to Read" // Optional, defaults if omitted
-          // rating and comments will be added later
+          "isbn": "9780547928227", // Optional
+          "cover_url": "https://covers.openlibrary.org/b/id/103187-M.jpg" // Optional
+          // "status": "Want to Read" // Optional, defaults if omitted
         }
         ```
     *   Response:
-        *   `201 Created`: Success, returns the newly created book object (including its assigned `id`).
-        *   `400 Bad Request`: Invalid JSON or missing required fields (`title`, `isbn`, `open_library_id`).
-        *   `500 Internal Server Error`: Database error.
+        *   `201 Created`: Success, returns the newly created book object (including its assigned `id` and default status).
+        *   `400 Bad Request`: Invalid JSON, missing required fields (`title`, `open_library_id`), or validation error.
+        *   `500 Internal Server Error`: Database error (e.g., UNIQUE constraint violation on `open_library_id`).
 
 *   **`GET /api/search?q={query}`**
-    *   Description: Searches Open Library for books matching the `query` (title/author). Returns a list of simplified book results that include an ISBN.
+    *   Description: Searches the Open Library API for books matching the `query` (title/author). Returns a simplified list of results suitable for selection.
     *   Query Parameter: `q` - The search term (URL encoded).
     *   Response: `200 OK` with a JSON array of search result objects.
         ```json
@@ -134,19 +143,19 @@ The backend provides a simple REST API:
             "open_library_id": "OL7353617M",
             "title": "The Hobbit",
             "author": "J. R. R. Tolkien",
-            "isbn": "9780547928227", // Example ISBN
-            "cover_url": "https://covers.openlibrary.org/b/id/103187-M.jpg" // Example cover URL
+            "isbn": "9780547928227", // First ISBN-13 or ISBN-10 found
+            "cover_url": "https://covers.openlibrary.org/b/id/103187-M.jpg" // Medium cover URL if available
           },
-          // ... other results
+          // ... other results (limit 20)
         ]
         ```
     *   Error Responses:
         *   `400 Bad Request`: Missing `q` parameter.
-        *   `500 Internal Server Error`: Error creating/processing request or decoding response.
-        *   `502 Bad Gateway`: Error contacting Open Library API.
+        *   `500 Internal Server Error`: Error creating/processing the request or decoding the Open Library response.
+        *   `502 Bad Gateway`: Error contacting the Open Library API or receiving an invalid response from it.
 
 *   **`PUT /api/books/{id}`**
-    *   Description: Updates the **status** of a specific book (identified by `id`). Primarily used for drag-and-drop functionality.
+    *   Description: Updates the **status** of a specific book (identified by its integer `id`). Used by the drag-and-drop feature.
     *   URL Parameter: `{id}` - The integer ID of the book to update.
     *   Request Body: JSON object containing the new status.
         ```json
@@ -155,33 +164,44 @@ The backend provides a simple REST API:
         }
         ```
     *   Response:
-        *   `200 OK`: Success.
-        *   `400 Bad Request`: Invalid JSON, invalid status value, or invalid/missing ID.
+        *   `200 OK`: Success, returns `{"message": "Book status updated successfully"}`.
+        *   `400 Bad Request`: Invalid JSON, invalid status value, or invalid ID format.
         *   `404 Not Found`: Book with the specified ID does not exist.
-        *   `500 Internal Server Error`: Database error.
+        *   `500 Internal Server Error`: Database error during update.
 
 *   **`PUT /api/books/{id}/details`**
     *   Description: Updates the **rating and/or comments** for a specific book.
     *   URL Parameter: `{id}` - The integer ID of the book to update.
-    *   Request Body: JSON object containing the fields to update. Send `null` to clear a field. Rating must be 1-10 if provided.
+    *   Request Body: JSON object containing the fields to update. Omit fields to leave them unchanged. Send `null` or an empty string for a field to clear its value in the database. Rating must be 1-10 if provided.
         ```json
-        {
-          "rating": 8,          // Optional (number 1-10 or null)
-          "comments": "Great read!" // Optional (string or null)
-        }
+        // Example: Update rating only
+        { "rating": 8 }
+
+        // Example: Update comments only
+        { "comments": "A fantastic read!" }
+
+        // Example: Update both
+        { "rating": 9, "comments": "Highly recommended." }
+
+        // Example: Clear rating, update comments
+        { "rating": null, "comments": "Finished, okay." }
+
+        // Example: Clear comments
+        { "comments": null }
         ```
     *   Response:
-        *   `200 OK`: Success.
-        *   `400 Bad Request`: Invalid JSON, invalid rating value, or invalid/missing ID.
+        *   `200 OK`: Success, returns `{"message": "Book details updated successfully"}`.
+        *   `400 Bad Request`: Invalid JSON, invalid rating value (not 1-10 or null), or invalid ID format.
         *   `404 Not Found`: Book with the specified ID does not exist.
-        *   `500 Internal Server Error`: Database error.
-
+        *   `500 Internal Server Error`: Database error during update.
 
 ## Future Enhancements
 
-*   Implement delete book functionality.
-*   Add search integration with Open Library API to fetch book details (author, cover).
-*   Allow editing book details (rating, comments).
-*   Add user authentication.
-*   Improve error handling and user feedback on the frontend.
-*   Add tests (unit and integration).
+*   Implement book deletion functionality (`DELETE /api/books/{id}`).
+*   Add user authentication/accounts.
+*   Improve frontend UI/UX (e.g., better loading indicators, error handling display).
+*   Add pagination for large bookshelves.
+*   Implement more robust error handling and reporting.
+*   Add unit and integration tests.
+*   Consider configuration file instead of only flags.
+*   Optionally allow manual book entry (without Open Library search).
