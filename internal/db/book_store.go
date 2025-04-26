@@ -46,7 +46,8 @@ func (s *SQLiteBookStore) AddBook(book *model.Book) (int64, error) {
         INSERT INTO books (title, author, open_library_id, isbn, status, rating, comments, cover_url)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?);
     `
-	log.Printf("SQL: Executing AddBook query for OpenLibraryID: %s", book.OpenLibraryID)
+	log.Printf("SQL: Executing AddBook query: %s with params: title='%s', author='%s', open_library_id='%s', isbn='%s', status='%s', rating=%v, comments='%v', cover_url='%v'",
+		query, book.Title, book.Author, book.OpenLibraryID, book.ISBN, book.Status, book.Rating, book.Comments, book.CoverURL)
 	stmt, err := s.DB.Prepare(query)
 	if err != nil {
 		log.Printf("SQL Error: Preparing AddBook statement failed: %v", err)
@@ -74,7 +75,7 @@ func (s *SQLiteBookStore) AddBook(book *model.Book) (int64, error) {
 // GetBooks retrieves all books from the database.
 func (s *SQLiteBookStore) GetBooks() ([]model.Book, error) {
 	query := `SELECT id, title, author, open_library_id, isbn, status, rating, comments, cover_url FROM books ORDER BY title;`
-	log.Println("SQL: Executing GetBooks query")
+	log.Printf("SQL: Executing GetBooks query: %s", query)
 
 	rows, err := s.DB.Query(query)
 	if err != nil {
@@ -127,7 +128,7 @@ func (s *SQLiteBookStore) GetBooks() ([]model.Book, error) {
 // GetBookByID retrieves a single book by its ID.
 func (s *SQLiteBookStore) GetBookByID(id int64) (*model.Book, error) {
 	query := `SELECT id, title, author, open_library_id, isbn, status, rating, comments, cover_url FROM books WHERE id = ?;`
-	log.Printf("SQL: Executing GetBookByID query for ID: %d", id)
+	log.Printf("SQL: Executing GetBookByID query: %s with id=%d", query, id)
 
 	row := s.DB.QueryRow(query, id)
 
@@ -166,7 +167,6 @@ func (s *SQLiteBookStore) GetBookByID(id int64) (*model.Book, error) {
 	return &book, nil
 }
 
-
 // UpdateBookStatus updates the status of a specific book.
 func (s *SQLiteBookStore) UpdateBookStatus(id int64, status model.BookStatus) error {
 	if !status.IsValid() {
@@ -174,7 +174,7 @@ func (s *SQLiteBookStore) UpdateBookStatus(id int64, status model.BookStatus) er
 	}
 
 	query := `UPDATE books SET status = ? WHERE id = ?;`
-	log.Printf("SQL: Executing UpdateBookStatus query for ID: %d to Status: %s", id, status)
+	log.Printf("SQL: Executing UpdateBookStatus query: %s with status='%s', id=%d", query, status, id)
 
 	stmt, err := s.DB.Prepare(query)
 	if err != nil {
@@ -213,7 +213,7 @@ func (s *SQLiteBookStore) UpdateBookDetails(id int64, rating *int, comments *str
 	}
 
 	query := `UPDATE books SET rating = ?, comments = ? WHERE id = ?;`
-	log.Printf("SQL: Executing UpdateBookDetails query for ID: %d", id)
+	log.Printf("SQL: Executing UpdateBookDetails query: %s with rating=%v, comments='%v', id=%d", query, rating, comments, id)
 
 	stmt, err := s.DB.Prepare(query)
 	if err != nil {
@@ -236,7 +236,6 @@ func (s *SQLiteBookStore) UpdateBookDetails(id int64, rating *int, comments *str
 	} else {
 		sqlComments = nil // This will be translated to NULL by the driver
 	}
-
 
 	res, err := stmt.Exec(sqlRating, sqlComments, id)
 	if err != nil {
