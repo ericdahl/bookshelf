@@ -1,388 +1,368 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const bookshelfColumns = document.getElementById('bookshelf-columns');
-    const searchForm = document.getElementById('search-form');
-    const searchResultsContainer = document.getElementById('search-results');
-    const searchQueryInput = document.getElementById('search-query');
-    const searchStatus = document.getElementById('search-status');
-    const bookshelfStatus = document.getElementById('bookshelf-status');
-    const editModal = document.getElementById('edit-modal');
-    const editForm = document.getElementById('edit-form');
-    const editStatus = document.getElementById('edit-status');
+const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
 
-    const API_BASE_URL = '/api'; // Assuming API is served from the same origin
+const API_BASE_URL = '/api';
 
-    // --- Utility Functions ---
-    function setStatusMessage(element, message, isError = false) {
-        if (!element) return;
-        element.textContent = message;
-        element.className = isError ? 'error' : '';
-        // Optionally clear message after a delay
-        // setTimeout(() => { element.textContent = ''; element.className = ''; }, 5000);
-    }
-
-    // --- API Fetch Functions ---
-    async function fetchBooks() {
-        setStatusMessage(bookshelfStatus, 'Loading books...');
-        try {
-            const response = await fetch(`${API_BASE_URL}/books`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const books = await response.json();
-            renderBookshelf(books);
-            setStatusMessage(bookshelfStatus, 'Books loaded.');
-        } catch (error) {
-            console.error('Error fetching books:', error);
-            setStatusMessage(bookshelfStatus, `Error loading books: ${error.message}`, true);
-        }
-    }
-
-    async function searchOpenLibrary(query) {
-        setStatusMessage(searchStatus, 'Searching...');
-        searchResultsContainer.innerHTML = ''; // Clear previous results
-        try {
-            const response = await fetch(`${API_BASE_URL}/search?q=${encodeURIComponent(query)}`);
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Unknown error occurred' }));
-                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-            }
-            const results = await response.json();
-            renderSearchResults(results);
-            setStatusMessage(searchStatus, results.length > 0 ? `${results.length} results found.` : 'No results found.');
-        } catch (error) {
-            console.error('Error searching Open Library:', error);
-            setStatusMessage(searchStatus, `Search failed: ${error.message}`, true);
-        }
-    }
-
-    async function addBookToShelf(bookData) {
-        setStatusMessage(searchStatus, `Adding "${bookData.title}"...`);
-        try {
-            const response = await fetch(`${API_BASE_URL}/books`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(bookData),
-            });
-            if (!response.ok) {
-                 const errorData = await response.json().catch(() => ({ error: 'Failed to add book' }));
-                 throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-            }
-            const newBook = await response.json();
-            addBookToDOM(newBook); // Add to the correct column
-            setStatusMessage(searchStatus, `"${newBook.title}" added successfully!`);
-            searchResultsContainer.innerHTML = ''; // Clear search results after adding
-            searchQueryInput.value = ''; // Clear search input
-        } catch (error) {
-            console.error('Error adding book:', error);
-            setStatusMessage(searchStatus, `Error adding book: ${error.message}`, true);
-        }
-    }
-
-    async function updateBookStatus(bookId, newStatus) {
-        setStatusMessage(bookshelfStatus, 'Updating status...');
-        try {
-            const response = await fetch(`${API_BASE_URL}/books/${bookId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus }),
-            });
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Failed to update status' }));
-                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-            }
-            // No need to re-fetch all books, the drop was successful visually.
-            // Optionally update the book card's data attribute if needed elsewhere.
-            const bookCard = document.querySelector(`.book-card[data-id="${bookId}"]`);
-            if (bookCard) {
-                bookCard.dataset.status = newStatus;
-            }
-            setStatusMessage(bookshelfStatus, 'Book status updated.');
-        } catch (error) {
-            console.error('Error updating book status:', error);
-            setStatusMessage(bookshelfStatus, `Error updating status: ${error.message}`, true);
-            // TODO: Optionally revert the drag/drop visually on error
-            fetchBooks(); // Re-fetch to ensure consistency on error
-        }
-    }
-
-     async function updateBookDetails(bookId, rating, comments) {
-        setStatusMessage(editStatus, 'Saving changes...');
-        try {
-            // Prepare payload: only include fields that have values.
-            // Send null if a field should be cleared.
-            const payload = {};
-            if (rating !== undefined) { // Check if rating was provided (could be empty string from form)
-                payload.rating = rating === '' ? null : parseInt(rating, 10);
-            }
-             if (comments !== undefined) { // Check if comments were provided
-                payload.comments = comments === '' ? null : comments;
-            }
-
-            // Basic validation before sending
-            if (payload.rating !== null && (isNaN(payload.rating) || payload.rating < 1 || payload.rating > 10)) {
-                 throw new Error("Rating must be a number between 1 and 10, or empty.");
-            }
-
-
-            const response = await fetch(`${API_BASE_URL}/books/${bookId}/details`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Failed to save details' }));
-                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-            }
-
-            setStatusMessage(editStatus, 'Changes saved successfully!');
-            // Update the specific book card in the DOM
-            fetchBooks(); // Easiest way to reflect changes for now
-            closeModal(editModal); // Close modal on success
-
-        } catch (error) {
-            console.error('Error updating book details:', error);
-            setStatusMessage(editStatus, `Error saving: ${error.message}`, true);
-        }
-    }
-
-
-    // --- DOM Manipulation ---
-    function createBookCard(book) {
-        const card = document.createElement('article');
-        card.className = 'book-card';
-        card.dataset.id = book.id;
-        card.dataset.status = book.status;
-        card.dataset.title = book.title; // Store for modal
-        card.dataset.rating = book.rating ?? ''; // Store for modal
-        card.dataset.comments = book.comments ?? ''; // Store for modal
-
-        // Cover Image
-        const coverDiv = document.createElement('div');
-        coverDiv.className = 'book-cover';
-        if (book.cover_url) {
-            const img = document.createElement('img');
-            img.src = book.cover_url;
-            img.alt = `Cover of ${book.title}`;
-            img.onerror = () => { // Handle broken image links
-                 coverDiv.innerHTML = `<div class="placeholder">No Cover</div>`;
-            }
-            coverDiv.appendChild(img);
-        } else {
-             coverDiv.innerHTML = `<div class="placeholder">No Cover</div>`;
-        }
-
-        // Book Details
-        const detailsDiv = document.createElement('div');
-        detailsDiv.className = 'book-details';
-        detailsDiv.innerHTML = `
-            <h4>${book.title}</h4>
-            <p>by ${book.author || 'Unknown Author'}</p>
-            ${book.isbn ? `<p>ISBN: ${book.isbn}</p>` : ''}
-            ${book.rating ? `<p class="rating">Rating: ${'★'.repeat(book.rating)}${'☆'.repeat(10 - book.rating)} (${book.rating}/10)</p>` : ''}
-            ${book.comments ? `<p class="comments">Comments: ${book.comments}</p>` : ''}
+// Simple reusable Book Card component
+const BookCard = {
+    props: ['book'],
+    emits: ['edit'],
+    template: `
+        <div class="book-cover">
+            <img v-if="book.cover_url" :src="book.cover_url" :alt="'Cover of ' + book.title" @error="onImgError">
+            <div v-else class="placeholder">No Cover</div>
+        </div>
+        <div class="book-details">
+            <h4>{{ book.title }}</h4>
+            <p>by {{ book.author || 'Unknown Author' }}</p>
+            <p v-if="book.isbn">ISBN: {{ book.isbn }}</p>
+            <p v-if="book.rating" class="rating">Rating: {{ '★'.repeat(book.rating) }}{{ '☆'.repeat(10 - book.rating) }} ({{ book.rating }}/10)</p>
+            <p v-if="book.comments" class="comments">Comments: {{ book.comments }}</p>
             <div class="book-actions">
-                <button class="edit-button secondary outline" data-id="${book.id}">Edit</button>
-                <!-- <button class="delete-button contrast outline" data-id="${book.id}">Delete</button> -->
+                <button class="edit-button secondary outline" @click.stop="$emit('edit', book)">Edit</button>
+                <!-- <button class="delete-button contrast outline" @click.stop="deleteBook(book.id)">Delete</button> -->
             </div>
-        `;
-
-        card.appendChild(coverDiv);
-        card.appendChild(detailsDiv);
-
-        // Add event listener for the edit button
-        const editButton = card.querySelector('.edit-button');
-        if (editButton) {
-            editButton.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent card drag initiation
-                openEditModal(book);
-            });
-        }
-
-        // Add event listener for delete button (future)
-        // const deleteButton = card.querySelector('.delete-button');
-        // if (deleteButton) { ... }
-
-        return card;
-    }
-
-    function addBookToDOM(book) {
-        const listIdMap = {
-            "Want to Read": "want-to-read-list",
-            "Currently Reading": "currently-reading-list",
-            "Read": "read-list"
-        };
-        const listId = listIdMap[book.status];
-        if (listId) {
-            const listElement = document.getElementById(listId);
-            const bookCard = createBookCard(book);
-            listElement.appendChild(bookCard);
-        } else {
-            console.warn(`Unknown status "${book.status}" for book ID ${book.id}`);
+        </div>
+    `,
+    methods: {
+        onImgError(event) {
+            // Replace broken image with placeholder
+            event.target.outerHTML = '<div class="placeholder">No Cover</div>';
         }
     }
+};
 
-    function renderBookshelf(books) {
-        // Clear existing books
-        document.querySelectorAll('.book-list').forEach(list => list.innerHTML = '');
-        // Populate lists
-        books.forEach(book => addBookToDOM(book));
-        // Re-initialize sortable after rendering
-        initializeSortable();
-    }
 
-    function renderSearchResults(results) {
-        searchResultsContainer.innerHTML = ''; // Clear previous
-        if (!results || results.length === 0) {
-            searchResultsContainer.innerHTML = '<p>No books found matching your query.</p>';
-            return;
-        }
-
-        results.forEach(book => {
-            const item = document.createElement('div');
-            item.className = 'search-result-item';
-
-            // Basic info display
-            item.innerHTML = `
-                ${book.cover_url ? `<img src="${book.cover_url}" alt="Cover">` : '<div class="placeholder" style="width:40px; height:60px; font-size:0.7em;">No Cover</div>'}
-                <div class="details">
-                    <strong>${book.title}</strong>
-                    <span>by ${book.author || 'Unknown Author'}</span>
-                    ${book.isbn ? `<span> | ISBN: ${book.isbn}</span>` : ''}
-                </div>
-                <button class="add-button" data-olid="${book.open_library_id}">Add to Shelf</button>
-            `;
-
-            // Add event listener to the button
-            const addButton = item.querySelector('.add-button');
-            addButton.addEventListener('click', () => {
-                // Prepare data to send to POST /api/books
-                const bookData = {
-                    title: book.title,
-                    author: book.author || 'Unknown Author',
-                    open_library_id: book.open_library_id,
-                    isbn: book.isbn || null, // Send null if undefined/empty
-                    cover_url: book.cover_url || null,
-                    // Status will be defaulted by backend if not sent, or we can set it here:
-                    // status: "Want to Read"
-                };
-                addBookToShelf(bookData);
-            });
-
-            searchResultsContainer.appendChild(item);
+const app = createApp({
+    components: {
+        BookCard
+    },
+    setup() {
+        // --- Reactive State ---
+        const books = ref([]); // Array of all books from the backend
+        const searchQuery = ref('');
+        const searchResults = ref([]);
+        const searchAttempted = ref(false); // To know if a search was run
+        const currentEditBook = ref(null); // Holds the book object being edited
+        const editFormData = reactive({ // Form data for the edit modal
+            rating: null,
+            comments: ''
         });
-    }
+        const editModalRef = ref(null); // Template ref for the dialog element
 
-    // --- Drag and Drop (SortableJS) ---
-    function initializeSortable() {
-        const lists = document.querySelectorAll('.book-list');
-        lists.forEach(list => {
-            new Sortable(list, {
-                group: 'bookshelf', // Set same group name for all lists
-                animation: 150,
-                ghostClass: 'sortable-ghost', // Class name for the drop placeholder
-                chosenClass: 'sortable-chosen', // Class name for the chosen item
-                onEnd: function (evt) {
-                    // evt.to   -> Target list element
-                    // evt.from -> Source list element
-                    // evt.item -> Dragged element (the book card)
-                    // evt.newIndex -> Index in target list
-                    // evt.oldIndex -> Index in source list
-
-                    const bookId = evt.item.dataset.id;
-                    const newStatus = evt.to.dataset.status; // Get status from target list's data attribute
-
-                    if (bookId && newStatus && evt.from !== evt.to) {
-                        console.log(`Book ID ${bookId} moved to ${newStatus}`);
-                        updateBookStatus(bookId, newStatus);
-                    }
-                },
-            });
+        const loading = reactive({
+            books: false,
+            search: false,
+            add: null, // Store OLID of book being added
+            edit: false,
+            statusUpdate: false,
         });
-    }
 
-    // --- Modal Handling (Pico.css style) ---
-    const openModal = (modal) => {
-        if (modal) {
-            modal.showModal(); // Use native dialog method
-            modal.setAttribute('aria-hidden', 'false');
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
-        }
-    };
+        const status = reactive({ // For user feedback messages
+            bookshelf: { message: '', isError: false },
+            search: { message: '', isError: false },
+            edit: { message: '', isError: false },
+        });
 
-    const closeModal = (modal) => {
-        if (modal) {
-            modal.close(); // Use native dialog method
-            modal.setAttribute('aria-hidden', 'true');
-            document.body.style.overflow = ''; // Restore background scrolling
-        }
-    };
-
-    // Global function for Pico's data-target dismissal (can be called from HTML)
-    window.toggleModal = (event) => {
-        event.preventDefault();
-        const modal = document.getElementById(event.currentTarget.dataset.target);
-        if (modal) {
-            if (modal.hasAttribute('open')) {
-                 closeModal(modal);
-            } else {
-                 openModal(modal);
+        // --- Utility Functions ---
+        function setStatusMessage(area, message, isError = false, clearAfter = 5000) {
+            if (status[area]) {
+                status[area].message = message;
+                status[area].isError = isError;
+                if (clearAfter > 0) {
+                    setTimeout(() => {
+                        if (status[area].message === message) { // Clear only if message hasn't changed
+                             status[area].message = '';
+                             status[area].isError = false;
+                        }
+                    }, clearAfter);
+                }
             }
         }
-    };
 
-     // Close modal on clicking the backdrop (for native <dialog>)
-    editModal.addEventListener('click', (event) => {
-        if (event.target === editModal) {
-            closeModal(editModal);
+        // --- API Functions ---
+        async function fetchBooks() {
+            loading.books = true;
+            setStatusMessage('bookshelf', '');
+            try {
+                const response = await fetch(`${API_BASE_URL}/books`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                books.value = await response.json();
+                setStatusMessage('bookshelf', 'Books loaded.');
+            } catch (error) {
+                console.error('Error fetching books:', error);
+                setStatusMessage('bookshelf', `Error loading books: ${error.message}`, true, 0); // Don't auto-clear error
+            } finally {
+                loading.books = false;
+            }
         }
-    });
+
+        async function searchBooks() {
+            if (!searchQuery.value.trim()) {
+                setStatusMessage('search', 'Please enter a search term.', true);
+                return;
+            }
+            loading.search = true;
+            searchAttempted.value = true;
+            searchResults.value = [];
+            setStatusMessage('search', 'Searching...');
+            try {
+                const response = await fetch(`${API_BASE_URL}/search?q=${encodeURIComponent(searchQuery.value)}`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Search request failed' }));
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+                searchResults.value = await response.json();
+                 setStatusMessage('search', searchResults.value.length > 0 ? `${searchResults.value.length} results found.` : 'No results found.');
+            } catch (error) {
+                console.error('Error searching Open Library:', error);
+                setStatusMessage('search', `Search failed: ${error.message}`, true, 0);
+            } finally {
+                loading.search = false;
+            }
+        }
+
+        async function addBook(bookData) {
+            loading.add = bookData.open_library_id; // Indicate which book is being added
+            setStatusMessage('search', `Adding "${bookData.title}"...`);
+            try {
+                // Prepare data for the backend API
+                const payload = {
+                    title: bookData.title,
+                    author: bookData.author || 'Unknown Author',
+                    open_library_id: bookData.open_library_id,
+                    isbn: bookData.isbn || null,
+                    cover_url: bookData.cover_url || null,
+                    // Status defaults to "Want to Read" on the backend
+                };
+                const response = await fetch(`${API_BASE_URL}/books`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                 if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Failed to add book' }));
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+                const newBook = await response.json();
+                // Add to local state immediately for responsiveness
+                books.value.push(newBook);
+                // Optionally sort books again if needed: books.value.sort((a, b) => a.title.localeCompare(b.title));
+                setStatusMessage('search', `"${newBook.title}" added successfully!`);
+                searchResults.value = []; // Clear search results
+                searchQuery.value = ''; // Clear search input
+                searchAttempted.value = false; // Reset search attempted flag
+            } catch (error) {
+                console.error('Error adding book:', error);
+                // Check for unique constraint error (basic check)
+                if (error.message && error.message.toLowerCase().includes('unique constraint')) {
+                     setStatusMessage('search', `Error: Book "${bookData.title}" is already on your shelf.`, true, 0);
+                } else {
+                     setStatusMessage('search', `Error adding book: ${error.message}`, true, 0);
+                }
+            } finally {
+                loading.add = null;
+            }
+        }
+
+        async function updateBookStatus(bookId, newStatus) {
+            // Find the book in the local state to update it optimistically
+            const bookIndex = books.value.findIndex(b => b.id === parseInt(bookId, 10));
+            if (bookIndex === -1) return; // Should not happen
+
+            const originalStatus = books.value[bookIndex].status;
+            // Optimistic update
+            books.value[bookIndex].status = newStatus;
+
+            loading.statusUpdate = true;
+            setStatusMessage('bookshelf', 'Updating status...');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/books/${bookId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus }),
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Failed to update status' }));
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+                setStatusMessage('bookshelf', 'Book status updated.');
+            } catch (error) {
+                console.error('Error updating book status:', error);
+                setStatusMessage('bookshelf', `Error updating status: ${error.message}`, true, 0);
+                // Revert optimistic update on error
+                books.value[bookIndex].status = originalStatus;
+            } finally {
+                 loading.statusUpdate = false;
+            }
+        }
+
+        async function updateBookDetails(bookId, rating, comments) {
+            loading.edit = true;
+            setStatusMessage('edit', 'Saving changes...');
+            try {
+                const payload = {};
+                // Handle empty string from input as null for rating
+                payload.rating = (rating === '' || rating === null || isNaN(parseInt(rating, 10))) ? null : parseInt(rating, 10);
+                // Handle empty string from input as null for comments
+                payload.comments = (comments === '' || comments === null) ? null : comments;
+
+                // Validation (redundant with backend but good for UX)
+                if (payload.rating !== null && (payload.rating < 1 || payload.rating > 10)) {
+                    throw new Error("Rating must be between 1 and 10, or empty.");
+                }
+
+                const response = await fetch(`${API_BASE_URL}/books/${bookId}/details`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Failed to save details' }));
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                // Update local data on success
+                const bookIndex = books.value.findIndex(b => b.id === bookId);
+                if (bookIndex !== -1) {
+                    books.value[bookIndex].rating = payload.rating;
+                    books.value[bookIndex].comments = payload.comments;
+                }
+
+                setStatusMessage('edit', 'Changes saved successfully!');
+                closeEditModal(); // Close modal on success
+
+            } catch (error) {
+                console.error('Error updating book details:', error);
+                setStatusMessage('edit', `Error saving: ${error.message}`, true, 0);
+            } finally {
+                loading.edit = false;
+            }
+        }
+
+        // --- Computed Properties ---
+        const wantToReadBooks = computed(() => books.value.filter(b => b.status === 'Want to Read'));
+        const currentlyReadingBooks = computed(() => books.value.filter(b => b.status === 'Currently Reading'));
+        const readBooks = computed(() => books.value.filter(b => b.status === 'Read'));
+
+        // --- Modal Logic ---
+        function openEditModal(book) {
+            currentEditBook.value = book;
+            // Reset form data based on the book being edited
+            // Use nullish coalescing for potentially null values
+            editFormData.rating = book.rating ?? null; // Keep null if no rating
+            editFormData.comments = book.comments ?? ''; // Use empty string for textarea if null
+            setStatusMessage('edit', ''); // Clear previous status
+            // Use the template ref to access the dialog element
+            if (editModalRef.value) {
+                editModalRef.value.showModal();
+                 // Optional: focus first input
+                 nextTick(() => {
+                    const ratingInput = editModalRef.value.querySelector('#edit-rating');
+                    if(ratingInput) ratingInput.focus();
+                 });
+            }
+        }
+
+        function closeEditModal() {
+            if (editModalRef.value) {
+                editModalRef.value.close();
+            }
+            currentEditBook.value = null; // Clear the book being edited
+        }
+
+        function saveEdit() {
+            if (currentEditBook.value) {
+                updateBookDetails(currentEditBook.value.id, editFormData.rating, editFormData.comments);
+            }
+        }
+
+        // --- SortableJS Integration ---
+        function initializeSortable() {
+             // Ensure Sortable is loaded
+            if (typeof Sortable === 'undefined') {
+                console.error("SortableJS not loaded!");
+                return;
+            }
+
+            const lists = document.querySelectorAll('.book-list');
+            lists.forEach(list => {
+                // Destroy previous instance if exists (important for reactivity)
+                if (list.sortableInstance) {
+                    list.sortableInstance.destroy();
+                }
+                // Create new instance
+                list.sortableInstance = new Sortable(list, {
+                    group: 'bookshelf',
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    draggable: '.book-card', // Specify draggable elements
+                    onEnd: (evt) => {
+                        const bookId = evt.item.dataset.id;
+                        const newStatus = evt.to.dataset.status;
+                        const oldStatus = evt.from.dataset.status;
+
+                        // Only trigger update if moved to a *different* list
+                        if (bookId && newStatus && oldStatus !== newStatus) {
+                            console.log(`Book ID ${bookId} moved from ${oldStatus} to ${newStatus}`);
+                            // Call the Vue method to handle the API update and state change
+                            updateBookStatus(bookId, newStatus);
+                        } else {
+                             console.log(`Book ID ${bookId} moved within the same list or data missing.`);
+                             // If moved within the same list, Vue's computed properties handle the visual order change automatically
+                             // if the underlying `books` array order were changed, but SortableJS handles the DOM directly here.
+                             // For visual consistency after same-list drag, could force re-render or manually reorder `books.value`
+                             // but it's often not necessary unless strict order persistence is required.
+                        }
+                    },
+                });
+            });
+        }
 
 
-    function openEditModal(book) {
-        const modalTitle = document.getElementById('modal-book-title');
-        const bookIdInput = document.getElementById('edit-book-id');
-        const ratingInput = document.getElementById('edit-rating');
-        const commentsInput = document.getElementById('edit-comments');
+        // --- Lifecycle Hooks ---
+        onMounted(async () => {
+            await fetchBooks();
+            // Initialize SortableJS after the DOM is updated by Vue
+            await nextTick(); // Wait for Vue to render the fetched books
+            initializeSortable();
 
-        modalTitle.textContent = book.title;
-        bookIdInput.value = book.id;
-        // Use ?? '' to handle null/undefined -> empty string for form fields
-        ratingInput.value = book.rating ?? '';
-        commentsInput.value = book.comments ?? '';
-        setStatusMessage(editStatus, ''); // Clear previous status
+             // Add event listener for closing modal via backdrop click
+            if (editModalRef.value) {
+                editModalRef.value.addEventListener('click', (event) => {
+                    if (event.target === editModalRef.value) {
+                        closeEditModal();
+                    }
+                });
+            }
+        });
 
-        openModal(editModal);
+        // --- Return values for template ---
+        return {
+            books,
+            searchQuery,
+            searchResults,
+            searchAttempted,
+            currentEditBook,
+            editFormData,
+            editModalRef,
+            loading,
+            status,
+            fetchBooks,
+            searchBooks,
+            addBook,
+            updateBookStatus, // Although called internally by SortableJS, expose if needed
+            openEditModal,
+            closeEditModal,
+            saveEdit,
+            wantToReadBooks,
+            currentlyReadingBooks,
+            readBooks,
+        };
     }
-
-
-    // --- Event Listeners ---
-    searchForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const query = searchQueryInput.value.trim();
-        if (query) {
-            searchOpenLibrary(query);
-        } else {
-             setStatusMessage(searchStatus, 'Please enter a search term.', true);
-        }
-    });
-
-     editForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const bookId = document.getElementById('edit-book-id').value;
-        const rating = document.getElementById('edit-rating').value; // Get value as string
-        const comments = document.getElementById('edit-comments').value; // Get value as string
-
-        if (bookId) {
-            updateBookDetails(bookId, rating, comments);
-        } else {
-             setStatusMessage(editStatus, 'Error: Book ID missing.', true);
-        }
-    });
-
-
-    // --- Initial Load ---
-    fetchBooks();
-    // Note: SortableJS initialization is called within renderBookshelf after books are loaded.
-
 });
+
+// Mount the app
+app.mount('#app');

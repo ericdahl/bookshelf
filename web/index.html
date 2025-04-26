@@ -3,93 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Bookshelf</title>
+    <title>My Bookshelf (Vue)</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Consider using a CSS framework like Bootstrap, Tailwind, or Pico.css for styling -->
-    <!-- Example using Pico.css (minimal CSS framework) -->
+    <!-- Pico.css -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
-    <!-- SortableJS for drag and drop -->
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <!-- SortableJS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js" integrity="sha512-Eezs+g9Lq4TCCq0wae01s9PuNWzHYoCMkQAiFFzlGaJ3rzVBKLs1n+gg+tC9JEQUTDqTzu8DEu8jMUPYex0wTA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-    <main class="container">
-        <header>
-            <h1>My Bookshelf</h1>
-            <p>Organize your reading journey.</p>
-        </header>
+    <div id="app" v-cloak>
+        <main class="container">
+            <header>
+                <h1>My Bookshelf</h1>
+                <p>Organize your reading journey.</p>
+            </header>
 
-        <section id="search-section">
-            <h2>Add New Book</h2>
-            <form id="search-form">
-                <label for="search-query">Search Open Library (Title/Author):</label>
-                <input type="search" id="search-query" name="q" placeholder="e.g., The Hobbit" required>
-                <button type="submit">Search</button>
-            </form>
-            <div id="search-results" class="results-container" aria-live="polite">
-                <!-- Search results will be populated here -->
-            </div>
-             <p id="search-status" role="status"></p>
-        </section>
-
-        <hr>
-
-        <section id="bookshelf-section">
-            <h2>Your Books</h2>
-            <div class="grid" id="bookshelf-columns">
-                <div class="column" id="want-to-read-column">
-                    <h3>Want to Read</h3>
-                    <div id="want-to-read-list" class="book-list" data-status="Want to Read">
-                        <!-- Books will be populated here -->
-                    </div>
-                </div>
-                <div class="column" id="currently-reading-column">
-                    <h3>Currently Reading</h3>
-                    <div id="currently-reading-list" class="book-list" data-status="Currently Reading">
-                        <!-- Books will be populated here -->
-                    </div>
-                </div>
-                <div class="column" id="read-column">
-                    <h3>Read</h3>
-                    <div id="read-list" class="book-list" data-status="Read">
-                        <!-- Books will be populated here -->
-                    </div>
-                </div>
-            </div>
-             <p id="bookshelf-status" role="status"></p>
-        </section>
-
-        <!-- Modal for Editing Book Details -->
-        <dialog id="edit-modal">
-            <article>
-                <header>
-                    <a href="#close" aria-label="Close" class="close" data-target="edit-modal" onClick="toggleModal(event)"></a>
-                    Edit Book Details: <strong id="modal-book-title"></strong>
-                </header>
-                <form id="edit-form">
-                    <input type="hidden" id="edit-book-id">
-                    <label for="edit-rating">Rating (1-10):</label>
-                    <input type="number" id="edit-rating" name="rating" min="1" max="10" placeholder="Leave blank for no rating">
-
-                    <label for="edit-comments">Comments:</label>
-                    <textarea id="edit-comments" name="comments" rows="4" placeholder="Your thoughts on the book..."></textarea>
-
-                    <footer>
-                        <button type="button" class="secondary" data-target="edit-modal" onClick="toggleModal(event)">Cancel</button>
-                        <button type="submit">Save Changes</button>
-                    </footer>
+            <!-- Search Section -->
+            <section id="search-section">
+                <h2>Add New Book</h2>
+                <form @submit.prevent="searchBooks">
+                    <label for="search-query">Search Open Library (Title/Author):</label>
+                    <input type="search" id="search-query" name="q" placeholder="e.g., The Hobbit" required v-model="searchQuery">
+                    <button type="submit" :aria-busy="loading.search">Search</button>
                 </form>
-                 <p id="edit-status" role="status"></p>
-            </article>
-        </dialog>
+                <div id="search-results" class="results-container" aria-live="polite">
+                    <div v-if="loading.search">Searching...</div>
+                    <div v-if="!loading.search && searchResults.length === 0 && searchAttempted">No results found.</div>
+                    <div v-for="book in searchResults" :key="book.open_library_id" class="search-result-item">
+                        <img v-if="book.cover_url" :src="book.cover_url" alt="Cover">
+                        <div v-else class="placeholder" style="width:40px; height:60px; font-size:0.7em; display:flex; align-items:center; justify-content:center; background:#ccc; color:#666;">No Cover</div>
+                        <div class="details">
+                            <strong>{{ book.title }}</strong>
+                            <span>by {{ book.author || 'Unknown Author' }}</span>
+                            <span v-if="book.isbn"> | ISBN: {{ book.isbn }}</span>
+                        </div>
+                        <button @click="addBook(book)" :disabled="loading.add" :aria-busy="loading.add === book.open_library_id">Add to Shelf</button>
+                    </div>
+                </div>
+                <p id="search-status" role="status" :class="{ 'error': status.search.isError }">{{ status.search.message }}</p>
+            </section>
 
-    </main>
+            <hr>
 
-    <footer>
-        <div class="container">
-            <small>Bookshelf App - Powered by Go &amp; Open Library</small>
-        </div>
-    </footer>
+            <!-- Bookshelf Section -->
+            <section id="bookshelf-section">
+                <h2>Your Books</h2>
+                 <p v-if="loading.books" aria-busy="true">Loading books...</p>
+                 <p id="bookshelf-status" role="status" :class="{ 'error': status.bookshelf.isError }">{{ status.bookshelf.message }}</p>
 
+                <div class="grid" id="bookshelf-columns" v-if="!loading.books">
+                    <!-- Want to Read Column -->
+                    <div class="column" id="want-to-read-column">
+                        <h3>Want to Read</h3>
+                        <div id="want-to-read-list" class="book-list" data-status="Want to Read">
+                            <article v-for="book in wantToReadBooks" :key="book.id" class="book-card" :data-id="book.id">
+                                <book-card :book="book" @edit="openEditModal"></book-card>
+                            </article>
+                            <div v-if="wantToReadBooks.length === 0" class="empty-list-placeholder">Drop books here</div>
+                        </div>
+                    </div>
+                    <!-- Currently Reading Column -->
+                    <div class="column" id="currently-reading-column">
+                        <h3>Currently Reading</h3>
+                        <div id="currently-reading-list" class="book-list" data-status="Currently Reading">
+                             <article v-for="book in currentlyReadingBooks" :key="book.id" class="book-card" :data-id="book.id">
+                                <book-card :book="book" @edit="openEditModal"></book-card>
+                            </article>
+                            <div v-if="currentlyReadingBooks.length === 0" class="empty-list-placeholder">Drop books here</div>
+                        </div>
+                    </div>
+                    <!-- Read Column -->
+                    <div class="column" id="read-column">
+                        <h3>Read</h3>
+                        <div id="read-list" class="book-list" data-status="Read">
+                             <article v-for="book in readBooks" :key="book.id" class="book-card" :data-id="book.id">
+                                <book-card :book="book" @edit="openEditModal"></book-card>
+                            </article>
+                             <div v-if="readBooks.length === 0" class="empty-list-placeholder">Drop books here</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Edit Modal -->
+            <dialog id="edit-modal" ref="editModalRef">
+                <article v-if="currentEditBook">
+                    <header>
+                        <a href="#close" aria-label="Close" class="close" @click.prevent="closeEditModal"></a>
+                        Edit Book Details: <strong>{{ currentEditBook.title }}</strong>
+                    </header>
+                    <form id="edit-form" @submit.prevent="saveEdit">
+                        <input type="hidden" id="edit-book-id" :value="currentEditBook.id">
+
+                        <label for="edit-rating">Rating (1-10):</label>
+                        <input type="number" id="edit-rating" name="rating" min="1" max="10" placeholder="Leave blank for no rating" v-model.number="editFormData.rating">
+
+                        <label for="edit-comments">Comments:</label>
+                        <textarea id="edit-comments" name="comments" rows="4" placeholder="Your thoughts on the book..." v-model="editFormData.comments"></textarea>
+
+                        <footer>
+                            <button type="button" class="secondary" @click.prevent="closeEditModal">Cancel</button>
+                            <button type="submit" :aria-busy="loading.edit">Save Changes</button>
+                        </footer>
+                    </form>
+                    <p id="edit-status" role="status" :class="{ 'error': status.edit.isError }">{{ status.edit.message }}</p>
+                </article>
+            </dialog>
+
+        </main>
+
+        <footer>
+            <div class="container">
+                <small>Bookshelf App - Powered by Go, Vue.js &amp; Open Library</small>
+            </div>
+        </footer>
+    </div> <!-- End #app -->
+
+    <!-- Vue App Script -->
     <script src="main.js"></script>
 </body>
 </html>

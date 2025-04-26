@@ -1,4 +1,9 @@
-/* Basic Styling - Enhance or replace with a framework */
+/* Basic Styling - Using Pico.css variables */
+
+/* Prevent flash of unstyled content before Vue mounts */
+[v-cloak] > * { display:none }
+[v-cloak]::before { content: "Loading..." }
+
 
 body {
     font-family: sans-serif;
@@ -56,88 +61,47 @@ h1, h2, h3 {
     padding: calc(var(--pico-spacing) / 2);
 }
 
+.empty-list-placeholder {
+    text-align: center;
+    color: var(--pico-muted-color);
+    padding: var(--pico-spacing);
+    font-style: italic;
+    font-size: 0.9em;
+}
+
 /* Book Card Styling */
 .book-card {
-    background-color: #fff;
+    background-color: var(--pico-card-background-color); /* Use Pico variable */
     border: 1px solid var(--pico-card-border-color); /* Use Pico variable */
     border-radius: var(--pico-border-radius);
     padding: var(--pico-spacing);
     margin-bottom: var(--pico-spacing);
     box-shadow: var(--pico-card-box-shadow); /* Use Pico variable */
     cursor: grab; /* Indicate draggable */
-    display: flex; /* Use flexbox for layout */
-    gap: var(--pico-spacing);
-    align-items: flex-start; /* Align items at the top */
+    /* Let the component handle internal layout */
 }
 
-.book-card:active {
+/* Component will handle active state if needed */
+/* .book-card:active {
     cursor: grabbing;
-}
+} */
 
-.book-cover img {
-    max-width: 60px; /* Limit cover size */
-    height: auto;
-    display: block;
-    border-radius: calc(var(--pico-border-radius) / 2);
-}
-.book-cover .placeholder {
-    width: 60px;
-    height: 90px; /* Approx book cover aspect ratio */
-    background-color: #ccc;
-    color: #666;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8em;
-    text-align: center;
-    border-radius: calc(var(--pico-border-radius) / 2);
-}
-
-
-.book-details {
-    flex-grow: 1; /* Allow details to take remaining space */
-}
-
-.book-details h4 {
-    margin: 0 0 0.3em 0;
-    font-size: 1.1em;
-}
-
-.book-details p {
-    margin: 0.2em 0;
-    font-size: 0.9em;
-    color: #555;
-}
-
-.book-details .rating, .book-details .comments {
-    font-size: 0.85em;
-    color: #333;
-    margin-top: 0.5em;
-}
-.book-details .rating span {
-    color: #f0ad4e; /* Gold color for stars */
-}
-
-.book-actions {
-    margin-top: 0.5em;
-    font-size: 0.8em;
-}
-
-.book-actions button {
-    padding: 0.2em 0.5em;
-    font-size: 0.9em;
-    margin-right: 0.5em;
-    /* Pico styles buttons automatically */
-}
+/* Styles for elements inside book-card component are handled within the component's template or scoped CSS if using SFCs */
+/* We keep the general structure styles */
 
 
 /* SortableJS Ghost Class */
 .sortable-ghost {
-    opacity: 0.4;
-    background: #cce5ff; /* Light blue background for ghost */
+    /* Ensure the ghost element takes up space */
+    /* background: var(--pico-primary-background); */
+    /* border: 2px dashed var(--pico-primary); */
+    opacity: 0.5;
+    /* background: #cce5ff; */ /* Light blue background for ghost */
 }
 .sortable-chosen {
-     /* Style for the item being dragged - Pico might handle focus/active states */
+     /* Style for the item being dragged */
+     /* Example: slightly larger shadow */
+     box-shadow: var(--pico-card-box-shadow), 0 4px 15px rgba(0,0,0,0.2);
 }
 
 /* Search Results */
@@ -158,12 +122,14 @@ h1, h2, h3 {
 .search-result-item:last-child {
     border-bottom: none;
 }
-.search-result-item img {
+.search-result-item img, .search-result-item .placeholder {
     max-width: 40px;
     height: auto;
+    flex-shrink: 0; /* Prevent image/placeholder from shrinking */
 }
 .search-result-item .details {
     flex-grow: 1;
+    margin-left: 1em; /* Add space between image and text */
 }
 .search-result-item .details strong {
     display: block;
@@ -182,13 +148,20 @@ h1, h2, h3 {
     margin-top: 0.5em;
     font-style: italic;
     color: var(--pico-primary);
+    min-height: 1.2em; /* Prevent layout shift when message appears/disappears */
 }
 #search-status.error, #bookshelf-status.error, #edit-status.error {
-    color: var(--pico-color-red); /* Pico variable for error color */
+    color: var(--pico-form-invalid-border-color); /* Use Pico variable for error color */
 }
 
 
 /* Modal Styling (Pico handles basic modal structure via <dialog>) */
+#edit-modal[open] {
+    display: flex; /* Helps center the article */
+    align-items: center;
+    justify-content: center;
+}
+
 #edit-modal article {
     width: 90%;
     max-width: 500px; /* Limit modal width */
