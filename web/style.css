@@ -40,25 +40,44 @@ h1, h2, h3 {
 }
 
 /* Bookshelf Columns */
-#bookshelf-columns {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Responsive columns */
-    gap: var(--pico-spacing);
+.bookshelf-container {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--pico-spacing) * 2);
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.column {
+    background: var(--pico-card-background-color);
+    border-radius: var(--pico-border-radius);
+    padding: var(--pico-spacing);
+    box-shadow: var(--pico-card-box-shadow);
+    transition: all 0.2s ease;
 }
 
 .column h3 {
-    border-bottom: 2px solid var(--pico-primary); /* Use Pico variable */
+    border-bottom: 2px solid var(--pico-primary);
     padding-bottom: 0.5em;
     margin-bottom: 1em;
     text-align: center;
+    color: var(--pico-primary);
 }
 
 .book-list {
-    min-height: 150px; /* Ensure drop zones are visible */
-    background-color: var(--pico-form-element-background-color); /* Use Pico variable */
-    border: 1px dashed var(--pico-form-element-border-color); /* Use Pico variable */
-    border-radius: var(--pico-border-radius); /* Use Pico variable */
+    min-height: 150px;
+    background-color: var(--pico-form-element-background-color);
+    border: 2px dashed var(--pico-form-element-border-color);
+    border-radius: var(--pico-border-radius);
     padding: calc(var(--pico-spacing) / 2);
+    transition: all 0.2s ease;
+}
+
+/* Improved drag-and-drop visual feedback */
+.book-list.sortable-ghost {
+    background-color: var(--pico-primary-background);
+    border-color: var(--pico-primary);
+    border-style: solid;
 }
 
 .empty-list-placeholder {
@@ -67,41 +86,125 @@ h1, h2, h3 {
     padding: var(--pico-spacing);
     font-style: italic;
     font-size: 0.9em;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100px;
+    border: 2px dashed var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    margin: 0.5em 0;
 }
 
 /* Book Card Styling */
 .book-card {
-    background-color: var(--pico-card-background-color); /* Use Pico variable */
-    border: 1px solid var(--pico-card-border-color); /* Use Pico variable */
+    background-color: var(--pico-card-background-color);
+    border: 1px solid var(--pico-card-border-color);
     border-radius: var(--pico-border-radius);
     padding: var(--pico-spacing);
     margin-bottom: var(--pico-spacing);
-    box-shadow: var(--pico-card-box-shadow); /* Use Pico variable */
-    cursor: grab; /* Indicate draggable */
-    /* Let the component handle internal layout */
+    box-shadow: var(--pico-card-box-shadow);
+    cursor: grab;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    z-index: 1;
 }
 
-/* Component will handle active state if needed */
-/* .book-card:active {
+.book-card:active {
     cursor: grabbing;
-} */
-
-/* Styles for elements inside book-card component are handled within the component's template or scoped CSS if using SFCs */
-/* We keep the general structure styles */
-
-
-/* SortableJS Ghost Class */
-.sortable-ghost {
-    /* Ensure the ghost element takes up space */
-    /* background: var(--pico-primary-background); */
-    /* border: 2px dashed var(--pico-primary); */
-    opacity: 0.5;
-    /* background: #cce5ff; */ /* Light blue background for ghost */
 }
-.sortable-chosen {
-     /* Style for the item being dragged */
-     /* Example: slightly larger shadow */
-     box-shadow: var(--pico-card-box-shadow), 0 4px 15px rgba(0,0,0,0.2);
+
+.book-card.is-dragging {
+    opacity: 0.8;
+    transform: scale(1.02);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    z-index: 1000;
+}
+
+.book-card.sortable-ghost {
+    opacity: 0.5;
+    background: var(--pico-primary-background);
+    border: 2px dashed var(--pico-primary);
+}
+
+.book-card.sortable-chosen {
+    transform: scale(1.02);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    z-index: 1000;
+}
+
+/* SortableJS Fallback */
+.sortable-fallback {
+    opacity: 0.9;
+    transform: scale(1.05);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    z-index: 9999;
+}
+
+/* Prevent text selection during drag */
+body.dragging {
+    user-select: none;
+    cursor: grabbing;
+}
+
+/* Book Card Component Styles */
+.book-cover {
+    width: 100%;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1em;
+    background: var(--pico-form-element-background-color);
+    border-radius: var(--pico-border-radius);
+    overflow: hidden;
+}
+
+.book-cover img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.book-cover .placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--pico-form-element-background-color);
+    color: var(--pico-muted-color);
+    font-style: italic;
+}
+
+.book-details {
+    text-align: center;
+}
+
+.book-details h4 {
+    margin: 0 0 0.5em 0;
+    font-size: 1.1em;
+}
+
+.book-details p {
+    margin: 0.3em 0;
+    font-size: 0.9em;
+}
+
+.book-details .rating {
+    color: var(--pico-primary);
+}
+
+.book-details .comments {
+    font-style: italic;
+    color: var(--pico-muted-color);
+}
+
+.book-actions {
+    margin-top: 1em;
+    display: flex;
+    gap: 0.5em;
+    justify-content: center;
 }
 
 /* Search Results */

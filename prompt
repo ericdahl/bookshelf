@@ -1,0 +1,44 @@
+Create a golang web app called bookshelf with features of:
+- add book to a bookshelf - defaulting to "Currently Reading"
+- 3 bookshelves available: Read, Want-to-Read, Currently Reading
+- able to easily drag/drop book from one category to the other
+- book can have a rating applied 1-10 (10 is best)
+- book can have comments attached (e.g., what user liked or notes)
+- books can be searched for via query to back-end which uses OpenLibrary to fidn the info
+
+
+Technical specs:
+- books stored in sqlite file locally
+- golang API is RESTFUL with JSON payloads
+- web front-end is using modern javascript library with elegatnt modern theme
+- binary has options `--help` and `--port` defaulting to port 8080
+- logs go to stdout
+- all HTTP access is logged 
+- all SQL operations are logged
+- unit tests added
+- follows modern best practices with golang and conventions
+
+Example initial file layout (build on top of this as appropriate):
+```
+bookshelf/
+├── cmd/
+│   └── server/
+│       └── main.go         # entrypoint - setup server, db, routes
+├── internal/
+│   ├── api/
+│   │   ├── handler.go      # HTTP handlers (e.g., GET /books, POST /books)
+│   │   └── routes.go       # Router setup
+│   ├── db/
+│   │   ├── db.go           # DB connection and migrations
+│   │   └── book_store.go   # CRUD operations for books
+│   ├── model/
+│   │   └── book.go         # Book struct, maybe validation helpers
+│   └── config/
+│       └── config.go       # App settings (e.g., DB file location)
+├── web/
+│   ├── index.html          # Front-end
+│   ├── main.js             # JS to call API
+│   └── style.css           # CSS if needed
+├── go.mod                  # Go module
+└── README.md               # Project overview
+```

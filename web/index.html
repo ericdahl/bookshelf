@@ -50,38 +50,46 @@
             <!-- Bookshelf Section -->
             <section id="bookshelf-section">
                 <h2>Your Books</h2>
-                 <p v-if="loading.books" aria-busy="true">Loading books...</p>
-                 <p id="bookshelf-status" role="status" :class="{ 'error': status.bookshelf.isError }">{{ status.bookshelf.message }}</p>
+                <p v-if="loading.books" aria-busy="true">Loading books...</p>
+                <p id="bookshelf-status" role="status" :class="{ 'error': status.bookshelf.isError }">{{ status.bookshelf.message }}</p>
 
-                <div class="grid" id="bookshelf-columns" v-if="!loading.books">
-                    <!-- Want to Read Column -->
-                    <div class="column" id="want-to-read-column">
-                        <h3>Want to Read</h3>
-                        <div id="want-to-read-list" class="book-list" data-status="Want to Read">
-                            <article v-for="book in wantToReadBooks" :key="book.id" class="book-card" :data-id="book.id">
-                                <book-card :book="book" @edit="openEditModal"></book-card>
-                            </article>
-                            <div v-if="wantToReadBooks.length === 0" class="empty-list-placeholder">Drop books here</div>
-                        </div>
-                    </div>
+                <div class="bookshelf-container" id="bookshelf-columns" v-if="!loading.books">
                     <!-- Currently Reading Column -->
                     <div class="column" id="currently-reading-column">
                         <h3>Currently Reading</h3>
                         <div id="currently-reading-list" class="book-list" data-status="Currently Reading">
-                             <article v-for="book in currentlyReadingBooks" :key="book.id" class="book-card" :data-id="book.id">
-                                <book-card :book="book" @edit="openEditModal"></book-card>
-                            </article>
-                            <div v-if="currentlyReadingBooks.length === 0" class="empty-list-placeholder">Drop books here</div>
+                            <template v-if="currentlyReadingBooks.length > 0">
+                                <article v-for="book in currentlyReadingBooks" :key="book.id" class="book-card" :data-id="book.id">
+                                    <book-card :book="book" @edit="openEditModal"></book-card>
+                                </article>
+                            </template>
+                            <div v-else class="empty-list-placeholder">Drop books here</div>
                         </div>
                     </div>
+
+                    <!-- Want to Read Column -->
+                    <div class="column" id="want-to-read-column">
+                        <h3>Want to Read</h3>
+                        <div id="want-to-read-list" class="book-list" data-status="Want to Read">
+                            <template v-if="wantToReadBooks.length > 0">
+                                <article v-for="book in wantToReadBooks" :key="book.id" class="book-card" :data-id="book.id">
+                                    <book-card :book="book" @edit="openEditModal"></book-card>
+                                </article>
+                            </template>
+                            <div v-else class="empty-list-placeholder">Drop books here</div>
+                        </div>
+                    </div>
+
                     <!-- Read Column -->
                     <div class="column" id="read-column">
                         <h3>Read</h3>
                         <div id="read-list" class="book-list" data-status="Read">
-                             <article v-for="book in readBooks" :key="book.id" class="book-card" :data-id="book.id">
-                                <book-card :book="book" @edit="openEditModal"></book-card>
-                            </article>
-                             <div v-if="readBooks.length === 0" class="empty-list-placeholder">Drop books here</div>
+                            <template v-if="readBooks.length > 0">
+                                <article v-for="book in readBooks" :key="book.id" class="book-card" :data-id="book.id">
+                                    <book-card :book="book" @edit="openEditModal"></book-card>
+                                </article>
+                            </template>
+                            <div v-else class="empty-list-placeholder">Drop books here</div>
                         </div>
                     </div>
                 </div>

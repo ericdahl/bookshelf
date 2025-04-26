@@ -1,4 +1,4 @@
-const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
+const { createApp, ref, reactive, computed, onMounted, nextTick, watch } = Vue;
 
 const API_BASE_URL = '/api';
 
@@ -280,56 +280,84 @@ const app = createApp({
 
         // --- SortableJS Integration ---
         function initializeSortable() {
-             // Ensure Sortable is loaded
+            // Ensure Sortable is loaded
             if (typeof Sortable === 'undefined') {
                 console.error("SortableJS not loaded!");
                 return;
             }
 
+            // Define the common options for all sortable lists
+            const commonOptions = {
+                group: {
+                    name: 'bookshelf',
+                    pull: true,
+                    put: true
+                },
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                dragClass: 'sortable-drag',
+                draggable: '.book-card',
+                handle: '.book-card', // Make the entire card draggable
+                forceFallback: false, // Use native HTML5 drag-and-drop when possible
+                fallbackClass: 'sortable-fallback',
+                fallbackOnBody: true,
+                scroll: true,
+                scrollSensitivity: 80,
+                scrollSpeed: 30,
+                onStart: function(evt) {
+                    // Add a class to the body to prevent text selection while dragging
+                    document.body.classList.add('dragging');
+                    // Add a class to the dragged item
+                    evt.item.classList.add('is-dragging');
+                },
+                onEnd: function(evt) {
+                    // Remove the dragging class
+                    document.body.classList.remove('dragging');
+                    // Remove the dragging class from the item
+                    evt.item.classList.remove('is-dragging');
+                    
+                    const bookId = evt.item.dataset.id;
+                    const newStatus = evt.to.dataset.status;
+                    const oldStatus = evt.from.dataset.status;
+
+                    // Only trigger update if moved to a different list
+                    if (bookId && newStatus && oldStatus !== newStatus) {
+                        console.log(`Book ID ${bookId} moved from ${oldStatus} to ${newStatus}`);
+                        updateBookStatus(bookId, newStatus);
+                    }
+                }
+            };
+
+            // Initialize each sortable list
             const lists = document.querySelectorAll('.book-list');
             lists.forEach(list => {
                 // Destroy previous instance if exists (important for reactivity)
                 if (list.sortableInstance) {
                     list.sortableInstance.destroy();
                 }
-                // Create new instance
-                list.sortableInstance = new Sortable(list, {
-                    group: 'bookshelf',
-                    animation: 150,
-                    ghostClass: 'sortable-ghost',
-                    chosenClass: 'sortable-chosen',
-                    draggable: '.book-card', // Specify draggable elements
-                    onEnd: (evt) => {
-                        const bookId = evt.item.dataset.id;
-                        const newStatus = evt.to.dataset.status;
-                        const oldStatus = evt.from.dataset.status;
-
-                        // Only trigger update if moved to a *different* list
-                        if (bookId && newStatus && oldStatus !== newStatus) {
-                            console.log(`Book ID ${bookId} moved from ${oldStatus} to ${newStatus}`);
-                            // Call the Vue method to handle the API update and state change
-                            updateBookStatus(bookId, newStatus);
-                        } else {
-                             console.log(`Book ID ${bookId} moved within the same list or data missing.`);
-                             // If moved within the same list, Vue's computed properties handle the visual order change automatically
-                             // if the underlying `books` array order were changed, but SortableJS handles the DOM directly here.
-                             // For visual consistency after same-list drag, could force re-render or manually reorder `books.value`
-                             // but it's often not necessary unless strict order persistence is required.
-                        }
-                    },
-                });
+                
+                // Create new instance with the common options
+                list.sortableInstance = new Sortable(list, commonOptions);
             });
         }
-
 
         // --- Lifecycle Hooks ---
         onMounted(async () => {
             await fetchBooks();
+            
             // Initialize SortableJS after the DOM is updated by Vue
-            await nextTick(); // Wait for Vue to render the fetched books
+            await nextTick();
             initializeSortable();
+            
+            // Re-initialize Sortable when books change
+            watch(books, () => {
+                nextTick(() => {
+                    initializeSortable();
+                });
+            });
 
-             // Add event listener for closing modal via backdrop click
+            // Add event listener for closing modal via backdrop click
             if (editModalRef.value) {
                 editModalRef.value.addEventListener('click', (event) => {
                     if (event.target === editModalRef.value) {
