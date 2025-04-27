@@ -364,11 +364,13 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
         
-        // Add event listener to the add button
+        // Add event listener to the add button (only if it's not already in a shelf)
         const addButton = card.querySelector('.add-book');
-        addButton.addEventListener('click', () => {
-            addBook(book, addButton);
-        });
+        if (!book.existing_shelf) {
+            addButton.addEventListener('click', () => {
+                addBook(book, addButton);
+            });
+        }
         
         return card;
     }

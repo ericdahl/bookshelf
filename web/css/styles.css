@@ -472,8 +472,10 @@ main {
 }
 
 .add-book.book-exists {
-    background-color: #3498db;
+    background-color: #85c1e9;
     cursor: default;
+    pointer-events: none;
+    box-shadow: none;
 }
 
 .book-card.search-result {
