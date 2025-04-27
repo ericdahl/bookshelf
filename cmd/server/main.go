@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/your-username/bookshelf/internal/api" // Adjust import path
-	"github.com/your-username/bookshelf/internal/db"  // Adjust import path
+	"github.com/ericdahl/bookshelf/internal/api"
+	"github.com/ericdahl/bookshelf/internal/db"
 )
 
 func main() {

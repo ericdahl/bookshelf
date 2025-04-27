@@ -1,4 +1,4 @@
-module github.com/your-username/bookshelf // TODO: Replace with your actual module path
+module github.com/ericdahl/bookshelf
 
 go 1.21 // Or your desired Go version
 

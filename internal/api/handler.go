@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/your-username/bookshelf/internal/db"    // Adjust import path
-	"github.com/your-username/bookshelf/internal/model" // Adjust import path
+	"github.com/ericdahl/bookshelf/internal/db"
+	"github.com/ericdahl/bookshelf/internal/model"
 )
 
 // APIHandler holds dependencies for API handlers, like the database store.
@@ -320,7 +320,7 @@ func (h *APIHandler) SearchBooksHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "BookshelfApp/1.0 (github.com/your-username/bookshelf; contact@example.com)") // Be a good API citizen
+	req.Header.Set("User-Agent", "BookshelfApp/1.0 (github.com/ericdahl/bookshelf; contact@example.com)") // Be a good API citizen
 
 	resp, err := h.HTTPClient.Do(req)
 	if err != nil {

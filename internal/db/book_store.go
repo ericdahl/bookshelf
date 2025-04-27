@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/your-username/bookshelf/internal/model" // Adjust import path
+	"github.com/ericdahl/bookshelf/internal/model"
 )
 
 // BookStore defines the interface for database operations on books.

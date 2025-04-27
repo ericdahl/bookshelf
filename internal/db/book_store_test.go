@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/your-username/bookshelf/internal/model"
+	"github.com/ericdahl/bookshelf/internal/model"
 )
 
 // setupTestDB creates a new in-memory SQLite database for testing
