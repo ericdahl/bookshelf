@@ -1,0 +1,352 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #f7f7f7;
+    color: #333;
+    line-height: 1.6;
+}
+
+h1, h2, h3 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+button {
+    cursor: pointer;
+    border: none;
+    background-color: #3498db;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #2980b9;
+}
+
+.primary-button {
+    background-color: #2ecc71;
+}
+
+.primary-button:hover {
+    background-color: #27ae60;
+}
+
+.danger-button {
+    background-color: #e74c3c;
+}
+
+.danger-button:hover {
+    background-color: #c0392b;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Header styles */
+header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.search-container {
+    display: flex;
+    gap: 10px;
+}
+
+#search-input {
+    padding: 10px;
+    font-size: 14px;
+    border: none;
+    border-radius: 4px;
+    width: 250px;
+}
+
+#search-button {
+    padding: 10px 15px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Main content styles */
+main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    position: relative;
+}
+
+/* Shelves styles */
+.shelves-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.shelf {
+    background-color: #ecf0f1;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+.books-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    min-height: 220px; /* Provide space for empty shelves */
+    padding: 10px;
+    border: 2px dashed #bdc3c7;
+    border-radius: 8px;
+}
+
+.books-container.drag-over {
+    background-color: rgba(52, 152, 219, 0.1);
+    border-color: #3498db;
+}
+
+/* Book card styles */
+.book-card {
+    width: 150px;
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.book-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.book-cover {
+    height: 200px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f3f3f3;
+}
+
+.book-cover img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: cover;
+}
+
+.book-info {
+    padding: 10px;
+}
+
+.book-title {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.book-author {
+    font-size: 12px;
+    color: #7f8c8d;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Search results styles */
+#search-results {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    width: 80%;
+    max-width: 900px;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+    z-index: 10;
+}
+
+.results-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.close-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #7f8c8d;
+    cursor: pointer;
+    padding: 5px 10px;
+}
+
+.close-button:hover {
+    color: #e74c3c;
+}
+
+/* Book details popup */
+#book-details {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    width: 90%;
+    max-width: 700px;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+    z-index: 10;
+}
+
+.book-details-content {
+    display: flex;
+    gap: 2rem;
+}
+
+#book-details .book-cover {
+    flex: 0 0 200px;
+    height: 300px;
+}
+
+#book-details .book-info {
+    flex: 1;
+}
+
+.rating-container {
+    margin: 1rem 0;
+}
+
+.stars {
+    font-size: 24px;
+    color: #f39c12;
+    cursor: pointer;
+}
+
+.stars i {
+    margin-right: 5px;
+}
+
+.comments-container {
+    margin: 1rem 0;
+}
+
+#book-comments {
+    width: 100%;
+    height: 100px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: vertical;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+#save-details {
+    margin-right: 10px;
+}
+
+/* Loading overlay */
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+}
+
+.spinner {
+    border: 4px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top: 4px solid white;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .book-details-content {
+        flex-direction: column;
+    }
+    
+    #book-details .book-cover {
+        margin: 0 auto;
+    }
+}
+
+/* Ghost element for drag and drop */
+.sortable-ghost {
+    opacity: 0.4;
+}
+
+.sortable-drag {
+    opacity: 0.8;
+}
+
+/* Add book button in search results */
+.add-book {
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px;
+    background-color: #2ecc71;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.add-book:hover {
+    background-color: #27ae60;
+}
+
+.book-card.search-result {
+    cursor: default;
+}
