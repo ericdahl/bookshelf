@@ -322,7 +322,13 @@ func (h *APIHandler) SearchBooksHandler(w http.ResponseWriter, r *http.Request) 
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "BookshelfApp/1.0 (github.com/ericdahl/bookshelf; contact@example.com)") // Be a good API citizen
 
+	start := time.Now()
 	resp, err := h.HTTPClient.Do(req)
+	elapsed := time.Since(start)
+	if resp != nil {
+		log.Printf("OpenLibrary API response: url=%s status=%d took=%v", apiURL, resp.StatusCode, elapsed)
+	}
+
 	if err != nil {
 		respondWithError(w, http.StatusBadGateway, "Failed to contact Open Library API: "+err.Error())
 		return
