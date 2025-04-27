@@ -180,12 +180,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const coverUrl = book.cover_url || 'https://via.placeholder.com/150x200?text=No+Cover';
         const ratingHtml = book.rating ? `<p class="book-rating">Rating: ${book.rating}/10</p>` : '';
         
-        // Format title with series info if available
-        let displayTitle = book.title;
+        // Prepare series info display if available
+        let seriesHtml = '';
         if (book.series && book.series_index) {
-            displayTitle = `${book.title} (${book.series} Book ${book.series_index})`;
+            seriesHtml = `<p class="book-series">${book.series} Book ${book.series_index}</p>`;
         } else if (book.series) {
-            displayTitle = `${book.title} (${book.series})`;
+            seriesHtml = `<p class="book-series">${book.series}</p>`;
         }
         
         card.innerHTML = `
@@ -193,8 +193,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 <img src="${coverUrl}" alt="${book.title} cover">
             </div>
             <div class="book-info">
-                <h3 class="book-title">${displayTitle}</h3>
+                <h3 class="book-title">${book.title}</h3>
                 <p class="book-author">${book.author}</p>
+                ${seriesHtml}
                 ${ratingHtml}
             </div>
         `;
@@ -304,16 +305,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function showBookDetails(book) {
         currentBook = book;
         
-        // Format title with series info for display
-        let displayTitle = book.title;
-        if (book.series && book.series_index) {
-            displayTitle = `${book.title} (${book.series} Book ${book.series_index})`;
-        } else if (book.series) {
-            displayTitle = `${book.title} (${book.series})`;
-        }
-        
         // Update the UI with book details
-        document.getElementById('detail-title').textContent = displayTitle;
+        document.getElementById('detail-title').textContent = book.title;
         document.getElementById('detail-author').textContent = book.author;
         document.getElementById('detail-cover').src = book.cover_url || 'https://via.placeholder.com/150x200?text=No+Cover';
         
@@ -470,8 +463,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateBookCardInShelf(book) {
         const bookCard = document.querySelector(`.book-card[data-id="${book.id}"]`);
         if (bookCard) {
+            // Update rating if needed
             const ratingElement = bookCard.querySelector('.book-rating');
-            
             if (book.rating) {
                 if (ratingElement) {
                     ratingElement.textContent = `Rating: ${book.rating}/10`;
@@ -484,6 +477,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } else if (ratingElement) {
                 ratingElement.remove();
+            }
+            
+            // Update series info if needed
+            const seriesElement = bookCard.querySelector('.book-series');
+            if (book.series) {
+                const seriesText = book.series_index 
+                    ? `${book.series} Book ${book.series_index}` 
+                    : book.series;
+                    
+                if (seriesElement) {
+                    seriesElement.textContent = seriesText;
+                } else {
+                    const bookInfo = bookCard.querySelector('.book-info');
+                    const authorElement = bookInfo.querySelector('.book-author');
+                    
+                    const seriesP = document.createElement('p');
+                    seriesP.className = 'book-series';
+                    seriesP.textContent = seriesText;
+                    
+                    // Insert after author element
+                    if (authorElement.nextSibling) {
+                        bookInfo.insertBefore(seriesP, authorElement.nextSibling);
+                    } else {
+                        bookInfo.appendChild(seriesP);
+                    }
+                }
+            } else if (seriesElement) {
+                seriesElement.remove();
             }
         }
     }

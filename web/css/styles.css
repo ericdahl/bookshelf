@@ -177,6 +177,19 @@ main {
     margin-bottom: 3px;
 }
 
+.book-series {
+    font-size: 11px;
+    color: #3498db;
+    margin-top: 1px;
+    margin-bottom: 2px;
+    line-height: 1;
+    font-style: italic;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 .book-rating {
     font-size: 11px;
     color: #f39c12;
