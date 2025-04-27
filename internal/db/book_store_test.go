@@ -18,7 +18,7 @@ func setupTestDB(t *testing.T) (*sql.DB, *SQLiteBookStore) {
 	}
 
 	// Create the schema
-	err = createSchema(db)
+	err = CreateSchema(db)
 	if err != nil {
 		t.Fatalf("Failed to create schema: %v", err)
 	}

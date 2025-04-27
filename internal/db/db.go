@@ -39,7 +39,7 @@ func InitDB(dataSourceName string) (*sql.DB, error) {
 	log.Println("Database connection successful.")
 
 	// Create tables if they don't exist
-	if err = createSchema(db); err != nil {
+	if err = CreateSchema(db); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to create database schema: %w", err)
 	}
@@ -48,8 +48,9 @@ func InitDB(dataSourceName string) (*sql.DB, error) {
 	return db, nil
 }
 
-// createSchema defines and executes the SQL statements to create the database tables.
-func createSchema(db *sql.DB) error {
+// CreateSchema defines and executes the SQL statements to create the database tables.
+// Exported for testing purposes.
+func CreateSchema(db *sql.DB) error {
 	// Use TEXT for status, INTEGER for rating (nullable), TEXT for comments (nullable)
 	// Use TEXT for OpenLibraryID and ISBN
 	// Add UNIQUE constraint on OpenLibraryID to prevent duplicates? Or handle in application logic.
