@@ -310,6 +310,36 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('detail-author').textContent = book.author;
         document.getElementById('detail-cover').src = book.cover_url || 'https://via.placeholder.com/150x200?text=No+Cover';
         
+        // Update OpenLibrary link
+        const openLibraryLink = document.getElementById('detail-openlibrary-link').querySelector('a');
+        if (book.open_library_id) {
+            // Check if the ID is in the format OL12345M or if it's a full path like /works/OL12345M
+            let olid = book.open_library_id;
+            if (olid.startsWith('/')) {
+                // Extract just the ID part
+                const parts = olid.split('/');
+                olid = parts[parts.length - 1];
+            }
+            
+            // Set the URL based on the format of the ID
+            let url;
+            if (olid.startsWith('OL') && olid.endsWith('M')) {
+                // It's an edition ID (starts with OL and ends with M)
+                url = `https://openlibrary.org/books/${olid}`;
+            } else if (olid.startsWith('OL') && olid.endsWith('W')) {
+                // It's a works ID (starts with OL and ends with W)
+                url = `https://openlibrary.org/works/${olid}`;
+            } else {
+                // Default to works path 
+                url = `https://openlibrary.org/works/${olid}`;
+            }
+            
+            openLibraryLink.href = url;
+            openLibraryLink.parentElement.style.display = 'block';
+        } else {
+            openLibraryLink.parentElement.style.display = 'none';
+        }
+        
         // Update rating UI
         updateRatingUI(book.rating || 0);
         currentRating = book.rating || null;

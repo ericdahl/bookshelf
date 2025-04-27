@@ -190,6 +190,27 @@ main {
     overflow: hidden;
 }
 
+.openlibrary-link {
+    margin: 8px 0;
+}
+
+.openlibrary-link a {
+    color: #27ae60;
+    text-decoration: none;
+    font-size: 0.9em;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.openlibrary-link a:hover {
+    text-decoration: underline;
+}
+
+.openlibrary-link .fa-external-link-alt {
+    font-size: 0.8em;
+}
+
 .book-rating {
     font-size: 11px;
     color: #f39c12;
