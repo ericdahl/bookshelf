@@ -3,7 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/ericdahl/bookshelf/internal/model"
 )
@@ -47,40 +47,47 @@ func (s *SQLiteBookStore) AddBook(book *model.Book) (int64, error) {
         INSERT INTO books (title, author, open_library_id, isbn, status, rating, comments, cover_url)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?);
     `
-	log.Printf("SQL: Executing AddBook query: %s with params: title='%s', author='%s', open_library_id='%s', isbn='%s', status='%s', rating=%v, comments='%v', cover_url='%v'",
-		query, book.Title, book.Author, book.OpenLibraryID, book.ISBN, book.Status, book.Rating, book.Comments, book.CoverURL)
+	slog.Info("SQL: Executing AddBook query",
+		"title", book.Title,
+		"author", book.Author,
+		"openLibraryID", book.OpenLibraryID,
+		"isbn", book.ISBN,
+		"status", book.Status,
+		"rating", book.Rating,
+		"comments", book.Comments,
+		"coverURL", book.CoverURL)
 	stmt, err := s.DB.Prepare(query)
 	if err != nil {
-		log.Printf("SQL Error: Preparing AddBook statement failed: %v", err)
+		slog.Error("SQL Error: Preparing AddBook statement failed", "error", err)
 		return 0, fmt.Errorf("failed to prepare insert statement: %w", err)
 	}
 	defer stmt.Close()
 
 	res, err := stmt.Exec(book.Title, book.Author, book.OpenLibraryID, book.ISBN, book.Status, book.Rating, book.Comments, book.CoverURL)
 	if err != nil {
-		log.Printf("SQL Error: Executing AddBook statement failed: %v", err)
+		slog.Error("SQL Error: Executing AddBook statement failed", "error", err)
 		// Consider checking for UNIQUE constraint violation specifically
 		return 0, fmt.Errorf("failed to execute insert statement: %w", err)
 	}
 
 	id, err := res.LastInsertId()
 	if err != nil {
-		log.Printf("SQL Error: Failed to get last insert ID: %v", err)
+		slog.Error("SQL Error: Failed to get last insert ID", "error", err)
 		return 0, fmt.Errorf("failed to retrieve last insert ID: %w", err)
 	}
 	book.ID = id // Set the ID on the original struct
-	log.Printf("SQL: Successfully added book with ID: %d", id)
+	slog.Info("SQL: Successfully added book", "id", id)
 	return id, nil
 }
 
 // GetBooks retrieves all books from the database.
 func (s *SQLiteBookStore) GetBooks() ([]model.Book, error) {
 	query := `SELECT id, title, author, open_library_id, isbn, status, rating, comments, cover_url FROM books ORDER BY title;`
-	log.Printf("SQL: Executing GetBooks query: %s", query)
+	slog.Info("SQL: Executing GetBooks query")
 
 	rows, err := s.DB.Query(query)
 	if err != nil {
-		log.Printf("SQL Error: Executing GetBooks query failed: %v", err)
+		slog.Error("SQL Error: Executing GetBooks query failed", "error", err)
 		return nil, fmt.Errorf("failed to query books: %w", err)
 	}
 	defer rows.Close()
@@ -95,7 +102,7 @@ func (s *SQLiteBookStore) GetBooks() ([]model.Book, error) {
 		var isbn sql.NullString
 
 		if err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.OpenLibraryID, &isbn, &book.Status, &rating, &comments, &coverURL); err != nil {
-			log.Printf("SQL Error: Scanning book row failed: %v", err)
+			slog.Error("SQL Error: Scanning book row failed", "error", err)
 			return nil, fmt.Errorf("failed to scan book row: %w", err)
 		}
 
@@ -118,18 +125,18 @@ func (s *SQLiteBookStore) GetBooks() ([]model.Book, error) {
 	}
 
 	if err = rows.Err(); err != nil {
-		log.Printf("SQL Error: Error during row iteration: %v", err)
+		slog.Error("SQL Error: Error during row iteration", "error", err)
 		return nil, fmt.Errorf("error iterating book rows: %w", err)
 	}
 
-	log.Printf("SQL: Retrieved %d books", len(books))
+	slog.Info("SQL: Retrieved books", "count", len(books))
 	return books, nil
 }
 
 // GetBookByID retrieves a single book by its ID.
 func (s *SQLiteBookStore) GetBookByID(id int64) (*model.Book, error) {
 	query := `SELECT id, title, author, open_library_id, isbn, status, rating, comments, cover_url FROM books WHERE id = ?;`
-	log.Printf("SQL: Executing GetBookByID query: %s with id=%d", query, id)
+	slog.Info("SQL: Executing GetBookByID query", "id", id)
 
 	row := s.DB.QueryRow(query, id)
 
@@ -142,10 +149,10 @@ func (s *SQLiteBookStore) GetBookByID(id int64) (*model.Book, error) {
 	err := row.Scan(&book.ID, &book.Title, &book.Author, &book.OpenLibraryID, &isbn, &book.Status, &rating, &comments, &coverURL)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Printf("SQL: No book found for ID: %d", id)
+			slog.Info("SQL: No book found", "id", id)
 			return nil, fmt.Errorf("book with ID %d not found", id) // Consider a specific error type (e.g., ErrNotFound)
 		}
-		log.Printf("SQL Error: Scanning book row failed for ID %d: %v", id, err)
+		slog.Error("SQL Error: Scanning book row failed", "id", id, "error", err)
 		return nil, fmt.Errorf("failed to scan book row for ID %d: %w", id, err)
 	}
 
@@ -164,7 +171,7 @@ func (s *SQLiteBookStore) GetBookByID(id int64) (*model.Book, error) {
 		book.CoverURL = &coverURL.String
 	}
 
-	log.Printf("SQL: Retrieved book with ID: %d", id)
+	slog.Info("SQL: Retrieved book", "id", id)
 	return &book, nil
 }
 
@@ -175,33 +182,33 @@ func (s *SQLiteBookStore) UpdateBookStatus(id int64, status model.BookStatus) er
 	}
 
 	query := `UPDATE books SET status = ? WHERE id = ?;`
-	log.Printf("SQL: Executing UpdateBookStatus query: %s with status='%s', id=%d", query, status, id)
+	slog.Info("SQL: Executing UpdateBookStatus query", "status", status, "id", id)
 
 	stmt, err := s.DB.Prepare(query)
 	if err != nil {
-		log.Printf("SQL Error: Preparing UpdateBookStatus statement failed: %v", err)
+		slog.Error("SQL Error: Preparing UpdateBookStatus statement failed", "error", err)
 		return fmt.Errorf("failed to prepare update status statement: %w", err)
 	}
 	defer stmt.Close()
 
 	res, err := stmt.Exec(status, id)
 	if err != nil {
-		log.Printf("SQL Error: Executing UpdateBookStatus statement failed: %v", err)
+		slog.Error("SQL Error: Executing UpdateBookStatus statement failed", "error", err)
 		return fmt.Errorf("failed to execute update status statement: %w", err)
 	}
 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		log.Printf("SQL Error: Failed to get rows affected for UpdateBookStatus: %v", err)
+		slog.Error("SQL Error: Failed to get rows affected for UpdateBookStatus", "error", err)
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
 
 	if rowsAffected == 0 {
-		log.Printf("SQL: No book found to update status for ID: %d", id)
+		slog.Info("SQL: No book found to update status", "id", id)
 		return fmt.Errorf("book with ID %d not found", id) // Consider ErrNotFound
 	}
 
-	log.Printf("SQL: Successfully updated status for book ID: %d", id)
+	slog.Info("SQL: Successfully updated status for book", "id", id)
 	return nil
 }
 
@@ -214,11 +221,11 @@ func (s *SQLiteBookStore) UpdateBookDetails(id int64, rating *int, comments *str
 	}
 
 	query := `UPDATE books SET rating = ?, comments = ? WHERE id = ?;`
-	log.Printf("SQL: Executing UpdateBookDetails query: %s with rating=%v, comments='%v', id=%d", query, rating, comments, id)
+	slog.Info("SQL: Executing UpdateBookDetails query", "rating", rating, "comments", comments, "id", id)
 
 	stmt, err := s.DB.Prepare(query)
 	if err != nil {
-		log.Printf("SQL Error: Preparing UpdateBookDetails statement failed: %v", err)
+		slog.Error("SQL Error: Preparing UpdateBookDetails statement failed", "error", err)
 		return fmt.Errorf("failed to prepare update details statement: %w", err)
 	}
 	defer stmt.Close()
@@ -240,22 +247,22 @@ func (s *SQLiteBookStore) UpdateBookDetails(id int64, rating *int, comments *str
 
 	res, err := stmt.Exec(sqlRating, sqlComments, id)
 	if err != nil {
-		log.Printf("SQL Error: Executing UpdateBookDetails statement failed: %v", err)
+		slog.Error("SQL Error: Executing UpdateBookDetails statement failed", "error", err)
 		return fmt.Errorf("failed to execute update details statement: %w", err)
 	}
 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		log.Printf("SQL Error: Failed to get rows affected for UpdateBookDetails: %v", err)
+		slog.Error("SQL Error: Failed to get rows affected for UpdateBookDetails", "error", err)
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
 
 	if rowsAffected == 0 {
-		log.Printf("SQL: No book found to update details for ID: %d", id)
+		slog.Info("SQL: No book found to update details", "id", id)
 		return fmt.Errorf("book with ID %d not found", id) // Consider ErrNotFound
 	}
 
-	log.Printf("SQL: Successfully updated details for book ID: %d", id)
+	slog.Info("SQL: Successfully updated details for book", "id", id)
 	return nil
 }
 

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -16,14 +16,20 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		// Use a response writer wrapper if you need to capture status code
 		// For simple logging, this is often sufficient.
-		log.Printf("HTTP: Started %s %s from %s", r.Method, r.RequestURI, r.RemoteAddr)
+		slog.Info("HTTP Request started", 
+			"method", r.Method, 
+			"uri", r.RequestURI, 
+			"remoteAddr", r.RemoteAddr)
 
 		next.ServeHTTP(w, r) // Call the next handler
 
 		// Log after the request is handled
 		// Note: Status code logging requires a response writer wrapper.
 		// For now, just log duration.
-		log.Printf("HTTP: Completed %s %s in %v", r.Method, r.RequestURI, time.Since(start))
+		slog.Info("HTTP Request completed", 
+			"method", r.Method, 
+			"uri", r.RequestURI, 
+			"duration", time.Since(start))
 	})
 }
 
@@ -60,7 +66,7 @@ func SetupRouter(apiHandler *APIHandler, webDir string) *mux.Router {
 		http.ServeFile(w, r, filepath.Join(webDir, "index.html"))
 	})
 
-	log.Println("Router setup complete.")
+	slog.Info("Router setup complete")
 	return r
 }
 

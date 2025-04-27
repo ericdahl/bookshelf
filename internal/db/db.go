@@ -3,7 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -15,7 +15,7 @@ func InitDB(dataSourceName string) (*sql.DB, error) {
 	// Ensure the directory for the database file exists
 	dir := filepath.Dir(dataSourceName)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		log.Printf("Creating database directory: %s", dir)
+		slog.Info("Creating database directory", "dir", dir)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create database directory %s: %w", dir, err)
 		}
@@ -24,7 +24,7 @@ func InitDB(dataSourceName string) (*sql.DB, error) {
 	}
 
 
-	log.Printf("Initializing database connection to: %s", dataSourceName)
+	slog.Info("Initializing database connection", "dataSourceName", dataSourceName)
 	db, err := sql.Open("sqlite3", dataSourceName+"?_foreign_keys=on") // Enable foreign key support if needed later
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
@@ -36,7 +36,7 @@ func InitDB(dataSourceName string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	log.Println("Database connection successful.")
+	slog.Info("Database connection successful")
 
 	// Create tables if they don't exist
 	if err = CreateSchema(db); err != nil {
@@ -44,7 +44,7 @@ func InitDB(dataSourceName string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to create database schema: %w", err)
 	}
 
-	log.Println("Database schema verified/created.")
+	slog.Info("Database schema verified/created")
 	return db, nil
 }
 
@@ -67,12 +67,12 @@ func CreateSchema(db *sql.DB) error {
         cover_url TEXT
     );
     `
-	log.Println("Executing schema creation SQL...")
+	slog.Info("Executing schema creation SQL")
 	_, err := db.Exec(schema)
 	if err != nil {
-		log.Printf("Error executing schema SQL: %v", err)
+		slog.Error("Error executing schema SQL", "error", err)
 		return fmt.Errorf("failed to execute schema creation: %w", err)
 	}
-	log.Println("Schema execution successful.")
+	slog.Info("Schema execution successful")
 	return nil
 }

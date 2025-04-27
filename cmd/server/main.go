@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -45,23 +45,30 @@ func main() {
 	flag.Parse()
 
 	// --- Logging Setup ---
-	// Using standard log package, outputting to stdout by default.
-	// You could enhance this with structured logging (e.g., slog in Go 1.21+)
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile) // Include file/line number for easier debugging
-	log.Println("Starting Bookshelf application...")
-	log.Printf("Configuration: Port=%d, DBFile=%s, WebDir=%s", *port, *dbFile, *webDir)
+	// Using slog structured logging with JSON handler
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+	
+	slog.Info("Starting Bookshelf application...")
+	slog.Info("Configuration", 
+		"port", *port, 
+		"dbFile", *dbFile, 
+		"webDir", *webDir)
 
 
 	// --- Dependency Injection ---
 	// Initialize Database
 	database, err := db.InitDB(*dbFile)
 	if err != nil {
-		log.Fatalf("FATAL: Failed to initialize database: %v", err)
+		slog.Error("Failed to initialize database", "error", err)
+		os.Exit(1)
 	}
 	defer func() {
-		log.Println("Closing database connection...")
+		slog.Info("Closing database connection...")
 		if err := database.Close(); err != nil {
-			log.Printf("Error closing database: %v", err)
+			slog.Error("Error closing database", "error", err)
 		}
 	}()
 
@@ -75,20 +82,22 @@ func main() {
 	// Ensure the web directory exists before setting up the router/server
 	webDirAbs, err := filepath.Abs(*webDir)
 	if err != nil {
-		log.Fatalf("FATAL: Could not determine absolute path for web directory '%s': %v", *webDir, err)
+		slog.Error("Could not determine absolute path for web directory", "webDir", *webDir, "error", err)
+		os.Exit(1)
 	}
 	
 	if err := checkWebDir(*webDir); err != nil {
-		log.Fatalf("FATAL: %v. Please create it or specify a valid directory using --web-dir.", err)
+		slog.Error("Web directory error", "error", err, "help", "Please create it or specify a valid directory using --web-dir.")
+		os.Exit(1)
 	}
 	
-	log.Printf("Serving static files from: %s", webDirAbs)
+	slog.Info("Serving static files", "path", webDirAbs)
 
 	router := api.SetupRouter(apiHandler, webDirAbs) // Pass absolute path
 
 	// --- Server Setup ---
 	serverAddr := fmt.Sprintf(":%d", *port)
-	log.Printf("Starting HTTP server on %s", serverAddr)
+	slog.Info("Starting HTTP server", "address", serverAddr)
 
 	server := &http.Server{
 		Addr:    serverAddr,
@@ -101,8 +110,9 @@ func main() {
 
 	// --- Start Server ---
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("FATAL: Could not start server: %v", err)
+		slog.Error("Could not start server", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("Bookshelf application stopped.")
+	slog.Info("Bookshelf application stopped")
 }

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -37,7 +37,7 @@ func NewAPIHandler(store db.BookStore) *APIHandler {
 
 // respondWithError sends a JSON error response.
 func respondWithError(w http.ResponseWriter, code int, message string) {
-	log.Printf("HTTP Error %d: %s", code, message)
+	slog.Error("HTTP Error", "code", code, "message", message)
 	respondWithJSON(w, code, map[string]string{"error": message})
 }
 
@@ -45,7 +45,7 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	response, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("Error marshalling JSON response: %v", err)
+		slog.Error("Error marshalling JSON response", "error", err)
 		// Fallback to plain text error if marshalling fails
 		http.Error(w, `{"error":"Failed to marshal JSON response"}`, http.StatusInternalServerError)
 		return
@@ -54,7 +54,7 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	w.WriteHeader(code)
 	_, err = w.Write(response)
 	if err != nil {
-		log.Printf("Error writing JSON response: %v", err)
+		slog.Error("Error writing JSON response", "error", err)
 	}
 }
 
@@ -122,7 +122,9 @@ func (h *APIHandler) AddBookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Author is highly recommended but might be missing in some OL entries
 	if book.Author == "" {
-		log.Printf("Warning: Adding book '%s' (OLID: %s) with missing author.", book.Title, book.OpenLibraryID)
+		slog.Warn("Adding book with missing author", 
+			"title", book.Title, 
+			"openLibraryID", book.OpenLibraryID)
 		book.Author = "Unknown Author" // Provide a default or handle differently
 	}
 
@@ -267,7 +269,7 @@ func (h *APIHandler) DeleteBookHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = h.Store.DeleteBook(id)
 	if err != nil {
-		log.Printf("Error deleting book: %v", err)
+		slog.Error("Error deleting book", "error", err, "id", id)
 		http.Error(w, "Failed to delete book", http.StatusInternalServerError)
 		return
 	}
@@ -312,7 +314,7 @@ func (h *APIHandler) SearchBooksHandler(w http.ResponseWriter, r *http.Request) 
 	// Construct Open Library API URL
 	// Using the works search endpoint as it often has better consolidated data
 	apiURL := fmt.Sprintf("https://openlibrary.org/search.json?q=%s&fields=key,title,author_name,isbn,cover_i,author_key,first_publish_year&limit=20", url.QueryEscape(query))
-	log.Printf("Querying Open Library: %s", apiURL)
+	slog.Info("Querying Open Library", "url", apiURL)
 
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
 	if err != nil {
@@ -326,7 +328,10 @@ func (h *APIHandler) SearchBooksHandler(w http.ResponseWriter, r *http.Request) 
 	resp, err := h.HTTPClient.Do(req)
 	elapsed := time.Since(start)
 	if resp != nil {
-		log.Printf("OpenLibrary API response: url=%s status=%d took=%v", apiURL, resp.StatusCode, elapsed)
+		slog.Info("OpenLibrary API response", 
+			"url", apiURL, 
+			"status", resp.StatusCode, 
+			"responseTime", elapsed)
 	}
 
 	if err != nil {
