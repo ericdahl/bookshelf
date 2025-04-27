@@ -18,6 +18,14 @@
     </header>
     
     <main>
+        <div id="search-results" class="hidden">
+            <div class="search-results-header">
+                <h2>Search Results</h2>
+                <button id="close-search" class="button secondary">Close Search</button>
+            </div>
+            <div class="results-container"></div>
+        </div>
+        
         <div class="shelves-container">
             <section class="shelf" id="want-to-read">
                 <h2>Want to Read</h2>
@@ -33,12 +41,6 @@
                 <h2>Read</h2>
                 <div class="books-container" data-status="Read"></div>
             </section>
-        </div>
-        
-        <div id="search-results" class="hidden">
-            <h2>Search Results</h2>
-            <button id="close-search" class="close-button">×</button>
-            <div class="results-container"></div>
         </div>
         
         <div id="book-details" class="hidden">

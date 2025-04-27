@@ -78,6 +78,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Close search results
         closeSearch.addEventListener('click', () => {
             searchResults.classList.add('hidden');
+            searchInput.value = ''; // Clear search input
         });
 
         // Book details
@@ -148,12 +149,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (books.length === 0) {
                     resultsContainer.innerHTML = '<p>No books found. Try a different search term.</p>';
                 } else {
+                    // Show number of results
+                    resultsContainer.innerHTML = `<p class="search-count">${books.length} books found for "${query}"</p>`;
+                    
+                    // Create a container for the book cards
+                    const booksGrid = document.createElement('div');
+                    booksGrid.className = 'search-results-grid';
+                    
+                    // Add each book to the grid
                     books.forEach(book => {
-                        resultsContainer.appendChild(createSearchResultCard(book));
+                        booksGrid.appendChild(createSearchResultCard(book));
                     });
+                    
+                    resultsContainer.appendChild(booksGrid);
                 }
                 
+                // Automatically scroll to the search results
                 searchResults.classList.remove('hidden');
+                searchResults.scrollIntoView({ behavior: 'smooth' });
                 hideLoading();
             })
             .catch(error => {
@@ -229,14 +242,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add event listener to the add button
         const addButton = card.querySelector('.add-book');
         addButton.addEventListener('click', () => {
-            addBook(book);
+            addBook(book, addButton);
         });
         
         return card;
     }
 
     // Add a new book to the shelf
-    function addBook(book) {
+    function addBook(book, buttonElement) {
         showLoading();
         
         const newBook = {
@@ -264,8 +277,15 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(addedBook => {
             // Add the book to the shelf
             addBookToShelf(addedBook);
-            // Close the search results
-            searchResults.classList.add('hidden');
+            
+            // Update button to show it was added
+            if (buttonElement) {
+                buttonElement.textContent = "Added ✓";
+                buttonElement.disabled = true;
+                buttonElement.classList.add("book-added");
+            }
+            
+            // Keep search results open for adding more books
             hideLoading();
         })
         .catch(error => {
