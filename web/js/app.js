@@ -253,13 +253,122 @@ document.addEventListener('DOMContentLoaded', function() {
             compactViewButton.classList.add('active');
             // Save preference
             localStorage.setItem('bookshelfViewMode', 'compact');
+            
+            // Add table headers to each shelf
+            document.querySelectorAll('.books-container').forEach(container => {
+                // Remove existing headers if any
+                const existingHeader = container.querySelector('.books-container-header');
+                if (existingHeader) {
+                    existingHeader.remove();
+                }
+                
+                // Create new header
+                const header = document.createElement('div');
+                header.className = 'books-container-header';
+                
+                const headerRow = document.createElement('div');
+                headerRow.className = 'header-row';
+                
+                // Add column headers
+                const titleHeader = document.createElement('div');
+                titleHeader.className = 'header-cell';
+                titleHeader.textContent = 'Title';
+                
+                const authorHeader = document.createElement('div');
+                authorHeader.className = 'header-cell';
+                authorHeader.textContent = 'Author';
+                
+                const seriesHeader = document.createElement('div');
+                seriesHeader.className = 'header-cell';
+                seriesHeader.textContent = 'Series';
+                
+                const ratingHeader = document.createElement('div');
+                ratingHeader.className = 'header-cell';
+                ratingHeader.textContent = 'Rating';
+                
+                // Assemble header
+                headerRow.appendChild(titleHeader);
+                headerRow.appendChild(authorHeader);
+                headerRow.appendChild(seriesHeader);
+                headerRow.appendChild(ratingHeader);
+                header.appendChild(headerRow);
+                
+                // Insert header at the beginning of the container
+                container.insertBefore(header, container.firstChild);
+                
+                // Convert existing book cards to tabular format
+                container.querySelectorAll('.book-card').forEach(convertBookCardToTableRow);
+            });
         } else {
             shelvesContainer.classList.remove('compact-mode');
             fullViewButton.classList.add('active');
             compactViewButton.classList.remove('active');
             // Save preference
             localStorage.setItem('bookshelfViewMode', 'full');
+            
+            // Remove table headers
+            document.querySelectorAll('.books-container-header').forEach(header => {
+                header.remove();
+            });
+            
+            // Restore original book card structure if needed
+            document.querySelectorAll('.book-card').forEach(card => {
+                // Make sure book-info is displayed
+                const infoDiv = card.querySelector('.book-info');
+                if (infoDiv) {
+                    infoDiv.style.removeProperty('display');
+                }
+                
+                // Remove any table cells if they exist
+                const cells = card.querySelectorAll('.cell-title, .cell-author, .cell-series, .cell-rating');
+                cells.forEach(cell => cell.remove());
+            });
         }
+    }
+    
+    // Convert a book card to a table row format
+    function convertBookCardToTableRow(card) {
+        // If cells already exist, just return
+        if (card.querySelector('.cell-title')) {
+            return;
+        }
+        
+        // Get book data from existing elements
+        const title = card.querySelector('.book-title').textContent;
+        const author = card.querySelector('.book-author').textContent;
+        
+        // Create table cells
+        const titleCell = document.createElement('div');
+        titleCell.className = 'cell-title';
+        titleCell.innerHTML = `<div class="book-title">${title}</div>`;
+        
+        const authorCell = document.createElement('div');
+        authorCell.className = 'cell-author';
+        authorCell.innerHTML = `<div class="book-author">${author}</div>`;
+        
+        const seriesCell = document.createElement('div');
+        seriesCell.className = 'cell-series';
+        const seriesElement = card.querySelector('.book-series');
+        if (seriesElement) {
+            seriesCell.innerHTML = `<div class="book-series">${seriesElement.textContent}</div>`;
+        } else {
+            seriesCell.innerHTML = `<div class="book-series">-</div>`;
+        }
+        
+        const ratingCell = document.createElement('div');
+        ratingCell.className = 'cell-rating';
+        const ratingElement = card.querySelector('.book-rating');
+        if (ratingElement) {
+            ratingCell.innerHTML = `<div class="book-rating">${ratingElement.textContent.replace('Rating: ', '')}</div>`;
+        } else {
+            ratingCell.innerHTML = `<div class="book-rating">-</div>`;
+        }
+        
+        // Add cells to the card
+        card.appendChild(titleCell);
+        card.appendChild(authorCell);
+        card.appendChild(seriesCell);
+        card.appendChild(ratingCell);
     }
     
     // Load saved view preference
@@ -343,7 +452,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function addBookToShelf(book) {
         const shelf = document.querySelector(`.books-container[data-status="${book.status}"]`);
         if (shelf) {
-            shelf.appendChild(createBookCard(book));
+            const bookCard = createBookCard(book);
+            shelf.appendChild(bookCard);
+            
+            // If in compact mode, convert the card to table row format
+            if (shelvesContainer.classList.contains('compact-mode')) {
+                convertBookCardToTableRow(bookCard);
+            }
         }
     }
 

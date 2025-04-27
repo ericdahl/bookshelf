@@ -463,6 +463,25 @@ main {
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
+    border: 1px solid #e0e0e0;
+}
+
+.compact-mode .books-container-header {
+    display: table-header-group;
+    background-color: #ecf0f1;
+    font-weight: bold;
+}
+
+.compact-mode .header-row {
+    display: table-row;
+}
+
+.compact-mode .header-cell {
+    display: table-cell;
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 2px solid #bdc3c7;
+    white-space: nowrap;
 }
 
 .compact-mode .book-card {
@@ -492,13 +511,37 @@ main {
 }
 
 .compact-mode .book-info {
+    display: none; /* Hide the original info container */
+}
+
+.compact-mode .cell-title,
+.compact-mode .cell-author,
+.compact-mode .cell-series,
+.compact-mode .cell-rating {
     display: table-cell;
     padding: 12px 15px;
     vertical-align: middle;
+    border-right: 1px solid #f1f1f1;
+}
+
+.compact-mode .cell-title {
+    width: 40%;
+}
+
+.compact-mode .cell-author {
+    width: 25%;
+}
+
+.compact-mode .cell-series {
+    width: 25%;
+}
+
+.compact-mode .cell-rating {
+    width: 10%;
+    text-align: center;
 }
 
 .compact-mode .book-title {
-    display: block;
     font-size: 15px;
     margin: 0;
     white-space: normal;
@@ -508,9 +551,8 @@ main {
 }
 
 .compact-mode .book-author {
-    display: block;
-    margin: 3px 0 0 0;
     color: #7f8c8d;
+    margin: 0;
     white-space: normal;
     overflow: visible;
     -webkit-line-clamp: unset;
@@ -518,10 +560,9 @@ main {
 }
 
 .compact-mode .book-series {
-    display: block;
-    margin: 3px 0 0 0;
     color: #3498db;
     font-style: italic;
+    margin: 0;
     white-space: normal;
     overflow: visible;
     -webkit-line-clamp: unset;
@@ -529,26 +570,10 @@ main {
 }
 
 .compact-mode .book-rating {
-    display: inline-block;
-    margin-top: 5px;
     color: #f39c12;
     font-weight: bold;
-}
-
-/* Column Headers for Compact View */
-.compact-mode .books-container::before {
-    content: "";
-    display: table-row;
-    background-color: #ecf0f1;
-    font-weight: bold;
-}
-
-.compact-mode .books-container::after {
-    content: "Title";
-    display: table-cell;
-    padding: 10px 15px;
-    font-weight: bold;
-    text-align: left;
+    margin: 0;
+    text-align: center;
 }
 
 /* Responsive design */
