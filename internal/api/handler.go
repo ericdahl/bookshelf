@@ -300,6 +300,9 @@ type OpenLibrarySearchResult struct {
 	Author        string  `json:"author"`              // Combined author names
 	ISBN          *string `json:"isbn,omitempty"`      // First available ISBN-13 or ISBN-10
 	CoverURL      *string `json:"cover_url,omitempty"` // URL for medium cover
+	// Fields to identify if book already exists in library
+	ExistingID    *int64       `json:"existing_id,omitempty"`    // ID if book already in library
+	ExistingShelf *string      `json:"existing_shelf,omitempty"` // Shelf name if already in library
 }
 
 // openLibrarySearchResponse is the structure matching the Open Library Search API JSON response.
@@ -368,6 +371,19 @@ func (h *APIHandler) SearchBooksHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Get all existing books and create a map for quick lookup
+	existingBooks, err := h.Store.GetBooks()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to retrieve existing books: "+err.Error())
+		return
+	}
+
+	// Create a map of OpenLibraryID -> Book for quick lookup
+	existingBooksMap := make(map[string]model.Book)
+	for _, book := range existingBooks {
+		existingBooksMap[book.OpenLibraryID] = book
+	}
+
 	// Transform the results into our desired format
 	results := []OpenLibrarySearchResult{}
 	for _, doc := range olResponse.Docs {
@@ -407,6 +423,15 @@ func (h *APIHandler) SearchBooksHandler(w http.ResponseWriter, r *http.Request) 
 			ISBN:          isbn,
 			CoverURL:      coverURL,
 		}
+		
+		// Check if the book exists in the user's library
+		if existingBook, exists := existingBooksMap[olid]; exists {
+			// Book exists in the library, set the ExistingID and ExistingShelf fields
+			result.ExistingID = &existingBook.ID
+			shelf := string(existingBook.Status)
+			result.ExistingShelf = &shelf
+		}
+		
 		results = append(results, result)
 	}
 

@@ -345,6 +345,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const coverUrl = book.cover_url || 'https://via.placeholder.com/150x200?text=No+Cover';
         
+        // Set button text based on whether book is already in a shelf
+        let buttonText = "Add to Shelf";
+        let buttonClass = "add-book";
+        if (book.existing_shelf) {
+            buttonText = `Shelf: ${book.existing_shelf}`;
+            buttonClass = "add-book book-exists";
+        }
+
         card.innerHTML = `
             <div class="book-cover">
                 <img src="${coverUrl}" alt="${book.title} cover">
@@ -352,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="book-info">
                 <h3 class="book-title">${book.title}</h3>
                 <p class="book-author">${book.author}</p>
-                <button class="add-book">Add to Shelf</button>
+                <button class="${buttonClass}">${buttonText}</button>
             </div>
         `;
         
@@ -367,6 +375,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Add a new book to the shelf
     function addBook(book, buttonElement) {
+        // If book already exists in a shelf, just show a notification
+        if (book.existing_shelf) {
+            alert(`This book is already in your "${book.existing_shelf}" shelf`);
+            return;
+        }
+        
         showLoading();
         
         const newBook = {

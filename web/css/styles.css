@@ -471,6 +471,11 @@ main {
     cursor: not-allowed;
 }
 
+.add-book.book-exists {
+    background-color: #3498db;
+    cursor: default;
+}
+
 .book-card.search-result {
     cursor: default;
 }
