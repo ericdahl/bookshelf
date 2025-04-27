@@ -369,6 +369,9 @@ document.addEventListener('DOMContentLoaded', function() {
             currentBook.rating = currentRating;
             currentBook.comments = comments || null;
             
+            // Update the book card in the shelf
+            updateBookCardInShelf(currentBook);
+            
             // Close the details popup
             bookDetails.classList.add('hidden');
             hideLoading();
@@ -415,5 +418,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // Hide loading overlay
     function hideLoading() {
         loadingOverlay.classList.add('hidden');
+    }
+
+    // Update book card in shelf
+    function updateBookCardInShelf(book) {
+        const bookCard = document.querySelector(`.book-card[data-id="${book.id}"]`);
+        if (bookCard) {
+            const ratingElement = bookCard.querySelector('.book-rating');
+            
+            if (book.rating) {
+                if (ratingElement) {
+                    ratingElement.textContent = `Rating: ${book.rating}/10`;
+                } else {
+                    const bookInfo = bookCard.querySelector('.book-info');
+                    const ratingP = document.createElement('p');
+                    ratingP.className = 'book-rating';
+                    ratingP.textContent = `Rating: ${book.rating}/10`;
+                    bookInfo.appendChild(ratingP);
+                }
+            } else if (ratingElement) {
+                ratingElement.remove();
+            }
+        }
     }
 });
