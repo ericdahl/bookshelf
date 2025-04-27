@@ -374,11 +374,37 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load saved view preference
     function loadViewPreference() {
         const savedMode = localStorage.getItem('bookshelfViewMode');
-        if (savedMode === 'compact') {
-            setViewMode('compact');
-        } else {
-            setViewMode('full'); // Default to full view
-        }
+        
+        // We need to ensure loadBooks completes before applying view mode
+        // This ensures headers are properly added to populated shelves
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    // Books have been added to shelves
+                    if (savedMode === 'compact') {
+                        setViewMode('compact');
+                    } else {
+                        setViewMode('full'); // Default to full view
+                    }
+                    observer.disconnect();
+                }
+            });
+        });
+        
+        // Start observing all book containers
+        document.querySelectorAll('.books-container').forEach(container => {
+            observer.observe(container, { childList: true });
+        });
+        
+        // Set a timeout in case no books are loaded
+        setTimeout(() => {
+            if (savedMode === 'compact') {
+                setViewMode('compact');
+            } else {
+                setViewMode('full');
+            }
+            observer.disconnect();
+        }, 1000);
     }
 
     // Initialize drag and drop
@@ -807,48 +833,79 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateBookCardInShelf(book) {
         const bookCard = document.querySelector(`.book-card[data-id="${book.id}"]`);
         if (bookCard) {
-            // Update rating if needed
-            const ratingElement = bookCard.querySelector('.book-rating');
-            if (book.rating) {
-                if (ratingElement) {
-                    ratingElement.textContent = `${book.rating}/10`;
-                } else {
-                    const bookInfo = bookCard.querySelector('.book-info');
-                    const ratingP = document.createElement('p');
-                    ratingP.className = 'book-rating';
-                    ratingP.textContent = `Rating: ${book.rating}/10`;
-                    bookInfo.appendChild(ratingP);
+            // Check if we're in compact view
+            const isCompactMode = shelvesContainer.classList.contains('compact-mode');
+            
+            // Update the standard card view elements
+            const bookInfo = bookCard.querySelector('.book-info');
+            if (bookInfo) {
+                // Update rating if needed
+                let ratingElement = bookCard.querySelector('.book-info .book-rating');
+                if (book.rating) {
+                    if (ratingElement) {
+                        ratingElement.textContent = `Rating: ${book.rating}/10`;
+                    } else {
+                        const ratingP = document.createElement('p');
+                        ratingP.className = 'book-rating';
+                        ratingP.textContent = `Rating: ${book.rating}/10`;
+                        bookInfo.appendChild(ratingP);
+                    }
+                } else if (ratingElement) {
+                    ratingElement.remove();
                 }
-            } else if (ratingElement) {
-                ratingElement.remove();
+                
+                // Update series info if needed
+                let seriesElement = bookCard.querySelector('.book-info .book-series');
+                if (book.series) {
+                    const seriesText = book.series_index 
+                        ? `${book.series} Book ${book.series_index}` 
+                        : book.series;
+                        
+                    if (seriesElement) {
+                        seriesElement.textContent = seriesText;
+                    } else {
+                        const authorElement = bookInfo.querySelector('.book-author');
+                        
+                        const seriesP = document.createElement('p');
+                        seriesP.className = 'book-series';
+                        seriesP.textContent = seriesText;
+                        
+                        // Insert after author element
+                        if (authorElement.nextSibling) {
+                            bookInfo.insertBefore(seriesP, authorElement.nextSibling);
+                        } else {
+                            bookInfo.appendChild(seriesP);
+                        }
+                    }
+                } else if (seriesElement) {
+                    seriesElement.remove();
+                }
             }
             
-            // Update series info if needed
-            const seriesElement = bookCard.querySelector('.book-series');
-            if (book.series) {
-                const seriesText = book.series_index 
-                    ? `${book.series} Book ${book.series_index}` 
-                    : book.series;
-                    
-                if (seriesElement) {
-                    seriesElement.textContent = seriesText;
-                } else {
-                    const bookInfo = bookCard.querySelector('.book-info');
-                    const authorElement = bookInfo.querySelector('.book-author');
-                    
-                    const seriesP = document.createElement('p');
-                    seriesP.className = 'book-series';
-                    seriesP.textContent = seriesText;
-                    
-                    // Insert after author element
-                    if (authorElement.nextSibling) {
-                        bookInfo.insertBefore(seriesP, authorElement.nextSibling);
+            // Update compact view cells if in compact mode
+            if (isCompactMode) {
+                // Update rating cell
+                const ratingCell = bookCard.querySelector('.cell-rating');
+                if (ratingCell) {
+                    if (book.rating) {
+                        ratingCell.innerHTML = `<div class="book-rating">${book.rating}/10</div>`;
                     } else {
-                        bookInfo.appendChild(seriesP);
+                        ratingCell.innerHTML = `<div class="book-rating">-</div>`;
                     }
                 }
-            } else if (seriesElement) {
-                seriesElement.remove();
+                
+                // Update series cell
+                const seriesCell = bookCard.querySelector('.cell-series');
+                if (seriesCell) {
+                    if (book.series) {
+                        const seriesText = book.series_index 
+                            ? `${book.series} Book ${book.series_index}` 
+                            : book.series;
+                        seriesCell.innerHTML = `<div class="book-series">${seriesText}</div>`;
+                    } else {
+                        seriesCell.innerHTML = `<div class="book-series">-</div>`;
+                    }
+                }
             }
         }
     }
