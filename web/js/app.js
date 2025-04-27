@@ -180,12 +180,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const coverUrl = book.cover_url || 'https://via.placeholder.com/150x200?text=No+Cover';
         const ratingHtml = book.rating ? `<p class="book-rating">Rating: ${book.rating}/10</p>` : '';
         
+        // Format title with series info if available
+        let displayTitle = book.title;
+        if (book.series && book.series_index) {
+            displayTitle = `${book.title} (${book.series} Book ${book.series_index})`;
+        } else if (book.series) {
+            displayTitle = `${book.title} (${book.series})`;
+        }
+        
         card.innerHTML = `
             <div class="book-cover">
                 <img src="${coverUrl}" alt="${book.title} cover">
             </div>
             <div class="book-info">
-                <h3 class="book-title">${book.title}</h3>
+                <h3 class="book-title">${displayTitle}</h3>
                 <p class="book-author">${book.author}</p>
                 ${ratingHtml}
             </div>
@@ -296,8 +304,16 @@ document.addEventListener('DOMContentLoaded', function() {
     function showBookDetails(book) {
         currentBook = book;
         
+        // Format title with series info for display
+        let displayTitle = book.title;
+        if (book.series && book.series_index) {
+            displayTitle = `${book.title} (${book.series} Book ${book.series_index})`;
+        } else if (book.series) {
+            displayTitle = `${book.title} (${book.series})`;
+        }
+        
         // Update the UI with book details
-        document.getElementById('detail-title').textContent = book.title;
+        document.getElementById('detail-title').textContent = displayTitle;
         document.getElementById('detail-author').textContent = book.author;
         document.getElementById('detail-cover').src = book.cover_url || 'https://via.placeholder.com/150x200?text=No+Cover';
         
@@ -307,6 +323,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Update comments
         document.getElementById('book-comments').value = book.comments || '';
+        
+        // Update series information
+        document.getElementById('book-series').value = book.series || '';
+        document.getElementById('book-series-index').value = book.series_index || '';
         
         // Show the details popup
         bookDetails.classList.remove('hidden');
@@ -349,6 +369,28 @@ document.addEventListener('DOMContentLoaded', function() {
         showLoading();
         
         const comments = document.getElementById('book-comments').value.trim();
+        const series = document.getElementById('book-series').value.trim();
+        let seriesIndex = document.getElementById('book-series-index').value;
+        
+        // Convert seriesIndex to a number if it's not empty
+        if (seriesIndex) {
+            seriesIndex = parseInt(seriesIndex);
+            // Validate series index
+            if (isNaN(seriesIndex) || seriesIndex <= 0) {
+                hideLoading();
+                alert('Series index must be a positive number');
+                return;
+            }
+        } else {
+            seriesIndex = null;
+        }
+        
+        // Validate that series index requires series name
+        if (seriesIndex && !series) {
+            hideLoading();
+            alert('Cannot add a series index without a series name');
+            return;
+        }
         
         fetch(API.BOOK_DETAILS(currentBook.id), {
             method: 'PUT',
@@ -357,7 +399,9 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify({
                 rating: currentRating,
-                comments: comments || null
+                comments: comments || null,
+                series: series || null,
+                series_index: seriesIndex
             })
         })
         .then(response => {
@@ -368,6 +412,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update the current book object
             currentBook.rating = currentRating;
             currentBook.comments = comments || null;
+            currentBook.series = series || null;
+            currentBook.series_index = seriesIndex;
             
             // Update the book card in the shelf
             updateBookCardInShelf(currentBook);

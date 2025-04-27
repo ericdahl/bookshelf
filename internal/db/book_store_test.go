@@ -235,7 +235,9 @@ func TestUpdateBookDetails(t *testing.T) {
 	// Test updating details
 	newRating := 10
 	newComments := "Updated comments"
-	err = store.UpdateBookDetails(id, &newRating, &newComments)
+	var series *string
+	var seriesIndex *int
+	err = store.UpdateBookDetails(id, &newRating, &newComments, series, seriesIndex)
 	if err != nil {
 		t.Fatalf("UpdateBookDetails failed: %v", err)
 	}
@@ -254,7 +256,7 @@ func TestUpdateBookDetails(t *testing.T) {
 	}
 
 	// Test clearing details (setting to null)
-	err = store.UpdateBookDetails(id, nil, nil)
+	err = store.UpdateBookDetails(id, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("UpdateBookDetails with nil values failed: %v", err)
 	}
@@ -274,13 +276,13 @@ func TestUpdateBookDetails(t *testing.T) {
 
 	// Test with invalid rating
 	invalidRating := 11
-	err = store.UpdateBookDetails(id, &invalidRating, nil)
+	err = store.UpdateBookDetails(id, &invalidRating, nil, nil, nil)
 	if err == nil {
 		t.Errorf("Expected error when updating with invalid rating")
 	}
 
 	// Test updating non-existent book
-	err = store.UpdateBookDetails(999, &newRating, &newComments)
+	err = store.UpdateBookDetails(999, &newRating, &newComments, nil, nil)
 	if err == nil {
 		t.Errorf("Expected error when updating non-existent book")
 	}

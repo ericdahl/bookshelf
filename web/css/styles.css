@@ -291,8 +291,42 @@ main {
     margin-top: 5px;
 }
 
+.series-container {
+    margin: 1rem 0;
+}
+
+.series-inputs {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+#book-series {
+    flex: 3;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+#book-series-index {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.series-format-note {
+    font-size: 12px;
+    color: #777;
+    font-style: italic;
+    margin-top: 5px;
+}
+
 #save-details {
     margin-right: 10px;
+    margin-top: 10px;
 }
 
 /* Loading overlay */

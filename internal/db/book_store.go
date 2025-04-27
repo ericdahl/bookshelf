@@ -14,9 +14,8 @@ type BookStore interface {
 	GetBooks() ([]model.Book, error)
 	GetBookByID(id int64) (*model.Book, error)
 	UpdateBookStatus(id int64, status model.BookStatus) error
-	UpdateBookDetails(id int64, rating *int, comments *string) error
+	UpdateBookDetails(id int64, rating *int, comments *string, series *string, seriesIndex *int) error
 	DeleteBook(id int64) error
-	// DeleteBook(id int64) error // Future enhancement
 }
 
 // SQLiteBookStore implements the BookStore interface using SQLite.
@@ -82,7 +81,7 @@ func (s *SQLiteBookStore) AddBook(book *model.Book) (int64, error) {
 
 // GetBooks retrieves all books from the database.
 func (s *SQLiteBookStore) GetBooks() ([]model.Book, error) {
-	query := `SELECT id, title, author, open_library_id, isbn, status, rating, comments, cover_url FROM books ORDER BY title;`
+	query := `SELECT id, title, author, open_library_id, isbn, status, rating, comments, cover_url, series, series_index FROM books ORDER BY title;`
 	slog.Info("SQL: Executing GetBooks query")
 
 	rows, err := s.DB.Query(query)
@@ -95,13 +94,16 @@ func (s *SQLiteBookStore) GetBooks() ([]model.Book, error) {
 	books := []model.Book{}
 	for rows.Next() {
 		var book model.Book
-		// Ensure pointers are used for nullable fields (rating, comments, cover_url, isbn)
+		// Ensure pointers are used for nullable fields
 		var rating sql.NullInt64
 		var comments sql.NullString
 		var coverURL sql.NullString
 		var isbn sql.NullString
+		var series sql.NullString
+		var seriesIndex sql.NullInt64
 
-		if err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.OpenLibraryID, &isbn, &book.Status, &rating, &comments, &coverURL); err != nil {
+		if err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.OpenLibraryID, &isbn, 
+			&book.Status, &rating, &comments, &coverURL, &series, &seriesIndex); err != nil {
 			slog.Error("SQL Error: Scanning book row failed", "error", err)
 			return nil, fmt.Errorf("failed to scan book row: %w", err)
 		}
@@ -120,6 +122,13 @@ func (s *SQLiteBookStore) GetBooks() ([]model.Book, error) {
 		if coverURL.Valid {
 			book.CoverURL = &coverURL.String
 		}
+		if series.Valid {
+			book.Series = &series.String
+		}
+		if seriesIndex.Valid {
+			si := int(seriesIndex.Int64)
+			book.SeriesIndex = &si
+		}
 
 		books = append(books, book)
 	}
@@ -135,7 +144,7 @@ func (s *SQLiteBookStore) GetBooks() ([]model.Book, error) {
 
 // GetBookByID retrieves a single book by its ID.
 func (s *SQLiteBookStore) GetBookByID(id int64) (*model.Book, error) {
-	query := `SELECT id, title, author, open_library_id, isbn, status, rating, comments, cover_url FROM books WHERE id = ?;`
+	query := `SELECT id, title, author, open_library_id, isbn, status, rating, comments, cover_url, series, series_index FROM books WHERE id = ?;`
 	slog.Info("SQL: Executing GetBookByID query", "id", id)
 
 	row := s.DB.QueryRow(query, id)
@@ -145,8 +154,11 @@ func (s *SQLiteBookStore) GetBookByID(id int64) (*model.Book, error) {
 	var comments sql.NullString
 	var coverURL sql.NullString
 	var isbn sql.NullString
+	var series sql.NullString
+	var seriesIndex sql.NullInt64
 
-	err := row.Scan(&book.ID, &book.Title, &book.Author, &book.OpenLibraryID, &isbn, &book.Status, &rating, &comments, &coverURL)
+	err := row.Scan(&book.ID, &book.Title, &book.Author, &book.OpenLibraryID, &isbn, 
+		&book.Status, &rating, &comments, &coverURL, &series, &seriesIndex)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			slog.Info("SQL: No book found", "id", id)
@@ -169,6 +181,13 @@ func (s *SQLiteBookStore) GetBookByID(id int64) (*model.Book, error) {
 	}
 	if coverURL.Valid {
 		book.CoverURL = &coverURL.String
+	}
+	if series.Valid {
+		book.Series = &series.String
+	}
+	if seriesIndex.Valid {
+		si := int(seriesIndex.Int64)
+		book.SeriesIndex = &si
 	}
 
 	slog.Info("SQL: Retrieved book", "id", id)
@@ -212,16 +231,16 @@ func (s *SQLiteBookStore) UpdateBookStatus(id int64, status model.BookStatus) er
 	return nil
 }
 
-// UpdateBookDetails updates the rating and/or comments of a specific book.
+// UpdateBookDetails updates the rating, comments, series info of a specific book.
 // It handles NULL values correctly.
-func (s *SQLiteBookStore) UpdateBookDetails(id int64, rating *int, comments *string) error {
+func (s *SQLiteBookStore) UpdateBookDetails(id int64, rating *int, comments *string, series *string, seriesIndex *int) error {
 	// Validate rating if provided
 	if rating != nil && (*rating < 1 || *rating > 10) {
 		return fmt.Errorf("rating must be between 1 and 10")
 	}
 
-	query := `UPDATE books SET rating = ?, comments = ? WHERE id = ?;`
-	slog.Info("SQL: Executing UpdateBookDetails query", "rating", rating, "comments", comments, "id", id)
+	query := `UPDATE books SET rating = ?, comments = ?, series = ?, series_index = ? WHERE id = ?;`
+	slog.Info("SQL: Executing UpdateBookDetails query", "rating", rating, "comments", comments, "series", series, "seriesIndex", seriesIndex, "id", id)
 
 	stmt, err := s.DB.Prepare(query)
 	if err != nil {
@@ -230,7 +249,7 @@ func (s *SQLiteBookStore) UpdateBookDetails(id int64, rating *int, comments *str
 	}
 	defer stmt.Close()
 
-	// Handle potential nil values for rating and comments when passing to Exec
+	// Handle potential nil values for parameters when passing to Exec
 	var sqlRating interface{}
 	if rating != nil {
 		sqlRating = *rating
@@ -244,8 +263,22 @@ func (s *SQLiteBookStore) UpdateBookDetails(id int64, rating *int, comments *str
 	} else {
 		sqlComments = nil // This will be translated to NULL by the driver
 	}
+	
+	var sqlSeries interface{}
+	if series != nil {
+		sqlSeries = *series
+	} else {
+		sqlSeries = nil
+	}
+	
+	var sqlSeriesIndex interface{}
+	if seriesIndex != nil {
+		sqlSeriesIndex = *seriesIndex
+	} else {
+		sqlSeriesIndex = nil
+	}
 
-	res, err := stmt.Exec(sqlRating, sqlComments, id)
+	res, err := stmt.Exec(sqlRating, sqlComments, sqlSeries, sqlSeriesIndex, id)
 	if err != nil {
 		slog.Error("SQL Error: Executing UpdateBookDetails statement failed", "error", err)
 		return fmt.Errorf("failed to execute update details statement: %w", err)

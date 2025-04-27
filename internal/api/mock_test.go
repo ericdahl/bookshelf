@@ -58,7 +58,7 @@ func (m *MockBookStore) UpdateBookStatus(id int64, status model.BookStatus) erro
 	return nil
 }
 
-func (m *MockBookStore) UpdateBookDetails(id int64, rating *int, comments *string) error {
+func (m *MockBookStore) UpdateBookDetails(id int64, rating *int, comments *string, series *string, seriesIndex *int) error {
 	if m.UpdateErr != nil {
 		return m.UpdateErr
 	}
@@ -66,6 +66,8 @@ func (m *MockBookStore) UpdateBookDetails(id int64, rating *int, comments *strin
 		if book.ID == id {
 			m.Books[i].Rating = rating
 			m.Books[i].Comments = comments
+			m.Books[i].Series = series
+			m.Books[i].SeriesIndex = seriesIndex
 			return nil
 		}
 	}

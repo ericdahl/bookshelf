@@ -64,7 +64,9 @@ func CreateSchema(db *sql.DB) error {
         status TEXT NOT NULL CHECK(status IN ('Want to Read', 'Currently Reading', 'Read')),
         rating INTEGER CHECK(rating IS NULL OR (rating >= 1 AND rating <= 10)),
         comments TEXT,
-        cover_url TEXT
+        cover_url TEXT,
+        series TEXT,
+        series_index INTEGER
     );
     `
 	slog.Info("Executing schema creation SQL")

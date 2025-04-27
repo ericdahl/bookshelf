@@ -30,6 +30,8 @@ type Book struct {
 	Rating        *int       `json:"rating,omitempty"`   // Pointer to allow null, 1-10
 	Comments      *string    `json:"comments,omitempty"` // Pointer to allow null
 	CoverURL      *string    `json:"cover_url,omitempty"` // URL for the book cover image
+	Series        *string    `json:"series,omitempty"`    // Name of the series (optional)
+	SeriesIndex   *int       `json:"series_index,omitempty"` // Position in the series (optional)
 }
 
 // Validate checks the book data for validity.

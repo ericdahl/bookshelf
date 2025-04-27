@@ -207,7 +207,7 @@ func (h *APIHandler) UpdateBookStatusHandler(w http.ResponseWriter, r *http.Requ
 	respondWithJSON(w, http.StatusOK, map[string]string{"message": "Book status updated successfully"})
 }
 
-// UpdateBookDetailsHandler handles PUT /api/books/{id}/details requests (for rating/comments).
+// UpdateBookDetailsHandler handles PUT /api/books/{id}/details requests (for rating, comments, and series info).
 func (h *APIHandler) UpdateBookDetailsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr, ok := vars["id"]
@@ -223,8 +223,10 @@ func (h *APIHandler) UpdateBookDetailsHandler(w http.ResponseWriter, r *http.Req
 
 	// Use pointers in the payload struct to detect if a field was provided (even if null)
 	var payload struct {
-		Rating   *int    `json:"rating"`   // Pointer allows distinguishing between 0 and not provided/null
-		Comments *string `json:"comments"` // Pointer allows distinguishing between "" and not provided/null
+		Rating      *int    `json:"rating"`        // Pointer allows distinguishing between 0 and not provided/null
+		Comments    *string `json:"comments"`      // Pointer allows distinguishing between "" and not provided/null
+		Series      *string `json:"series"`        // Name of series
+		SeriesIndex *int    `json:"series_index"` // Position in series
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -242,9 +244,21 @@ func (h *APIHandler) UpdateBookDetailsHandler(w http.ResponseWriter, r *http.Req
 		respondWithError(w, http.StatusBadRequest, "Rating must be between 1 and 10")
 		return
 	}
+	
+	// Validate series index if provided
+	if payload.SeriesIndex != nil && *payload.SeriesIndex <= 0 {
+		respondWithError(w, http.StatusBadRequest, "Series index must be greater than 0")
+		return
+	}
+	
+	// If series is null/empty but series_index is provided, return error
+	if (payload.Series == nil || *payload.Series == "") && payload.SeriesIndex != nil {
+		respondWithError(w, http.StatusBadRequest, "Cannot provide series_index without series name")
+		return
+	}
 
 	// Perform the update
-	err = h.Store.UpdateBookDetails(id, payload.Rating, payload.Comments)
+	err = h.Store.UpdateBookDetails(id, payload.Rating, payload.Comments, payload.Series, payload.SeriesIndex)
 	if err != nil {
 		// Differentiate between Not Found (404) and other errors (500)
 		if strings.Contains(err.Error(), "not found") { // Basic check
