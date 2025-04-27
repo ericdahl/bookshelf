@@ -16,7 +16,7 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		// Use a response writer wrapper if you need to capture status code
 		// For simple logging, this is often sufficient.
-		slog.Info("HTTP Request started", 
+		slog.Debug("HTTP Request started", 
 			"method", r.Method, 
 			"uri", r.RequestURI, 
 			"remoteAddr", r.RemoteAddr)
