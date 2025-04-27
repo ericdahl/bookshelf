@@ -482,6 +482,25 @@ main {
     text-align: left;
     border-bottom: 2px solid #bdc3c7;
     white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.compact-mode .header-cell:hover {
+    background-color: #d6dbdf;
+}
+
+.compact-mode .header-cell.sorted-asc::after {
+    content: " ▲";
+    font-size: 0.8em;
+    color: #3498db;
+}
+
+.compact-mode .header-cell.sorted-desc::after {
+    content: " ▼";
+    font-size: 0.8em;
+    color: #3498db;
 }
 
 .compact-mode .book-card {

@@ -47,21 +47,31 @@ document.addEventListener('DOMContentLoaded', function() {
         initShelfSorting();
     }
     
-    // Initialize sorting functionality for each shelf
+    // Initialize shelf sorting
     function initShelfSorting() {
-        const sortSelects = document.querySelectorAll('.sort-select');
-        
-        sortSelects.forEach(select => {
-            // Set default sort value
-            select.value = 'title';
-            
-            // Add change event listener
-            select.addEventListener('change', function() {
-                const status = this.getAttribute('data-status');
-                const sortBy = this.value;
-                sortShelfBooks(status, sortBy);
-            });
+        // Default sort by title for all shelves when app starts
+        document.querySelectorAll('.books-container').forEach(container => {
+            const status = container.dataset.status;
+            if (status) {
+                sortShelfBooks(status, 'title', 'asc');
+            }
         });
+    }
+    
+    // Handle column header clicks for sorting
+    function handleHeaderClick(event) {
+        const header = event.currentTarget;
+        const sortBy = header.dataset.sort;
+        const status = header.dataset.status;
+        
+        // Determine sort direction
+        let sortDirection = 'asc';
+        if (header.classList.contains('sorted-asc')) {
+            sortDirection = 'desc';
+        }
+        
+        // Sort the books
+        sortShelfBooks(status, sortBy, sortDirection);
     }
 
     // Load all books from the server
@@ -129,8 +139,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Sort books in a specific shelf
-    function sortShelfBooks(status, sortBy) {
+    // Sort books in a specific shelf with ascending/descending order support
+    function sortShelfBooks(status, sortBy, sortDirection = 'asc') {
         // Get all books from this shelf
         const shelf = document.querySelector(`.books-container[data-status="${status}"]`);
         if (!shelf) return;
@@ -144,6 +154,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const title = card.querySelector('.book-title').textContent;
             const author = card.querySelector('.book-author').textContent;
             
+            // Get series data if it exists
+            let series = "";
+            const seriesElem = card.querySelector('.book-series');
+            if (seriesElem && seriesElem.textContent !== '-') {
+                series = seriesElem.textContent;
+            }
+            
             // Parse rating if it exists
             let rating = null;
             const ratingElem = card.querySelector('.book-rating');
@@ -154,26 +171,41 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            return { element: card, id, title, author, rating };
+            return { element: card, id, title, author, series, rating };
         });
         
         // Sort books
         const sortedBooks = [...booksData].sort((a, b) => {
+            let result;
+            
             switch (sortBy) {
                 case 'title':
-                    return a.title.localeCompare(b.title);
+                    result = a.title.localeCompare(b.title);
+                    break;
                 case 'author':
-                    return a.author.localeCompare(b.author);
+                    result = a.author.localeCompare(b.author);
+                    break;
+                case 'series':
+                    // Handle empty series (empty series go at the end)
+                    if (a.series === "" && b.series === "") return 0;
+                    if (a.series === "") return 1;
+                    if (b.series === "") return -1;
+                    result = a.series.localeCompare(b.series);
+                    break;
                 case 'rating':
                     // Handle null ratings (null ratings go at the end)
                     if (a.rating === null && b.rating === null) return 0;
                     if (a.rating === null) return 1;
                     if (b.rating === null) return -1;
-                    // Sort by rating in descending order (higher ratings first)
-                    return b.rating - a.rating;
+                    // Sort by rating
+                    result = a.rating - b.rating;
+                    break;
                 default:
-                    return 0;
+                    result = 0;
             }
+            
+            // Apply sort direction
+            return sortDirection === 'asc' ? result : -result;
         });
         
         // Remove all books from shelf
@@ -183,6 +215,22 @@ document.addEventListener('DOMContentLoaded', function() {
         sortedBooks.forEach(book => {
             shelf.appendChild(book.element);
         });
+        
+        // Update header sort indicators
+        // In compact mode, headers are within books-container-header as the first child of the shelf
+        const headerContainer = shelf.querySelector('.books-container-header');
+        if (headerContainer) {
+            const headers = headerContainer.querySelectorAll('.header-cell');
+            headers.forEach(header => {
+                // Remove sort indicators from all headers
+                header.classList.remove('sorted-asc', 'sorted-desc');
+                
+                // Add appropriate sort indicator to the active sort header
+                if (header.dataset.sort === sortBy) {
+                    header.classList.add(sortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                }
+            });
+        }
     }
 
     // Set up event listeners
@@ -262,6 +310,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     existingHeader.remove();
                 }
                 
+                // Get the shelf status
+                const status = container.dataset.status;
+                
                 // Create new header
                 const header = document.createElement('div');
                 header.className = 'books-container-header';
@@ -271,20 +322,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Add column headers
                 const titleHeader = document.createElement('div');
-                titleHeader.className = 'header-cell';
+                titleHeader.className = 'header-cell cell-title sorted-asc'; // Default sort column
                 titleHeader.textContent = 'Title';
+                titleHeader.dataset.sort = 'title';
+                titleHeader.dataset.status = status;
+                titleHeader.addEventListener('click', handleHeaderClick);
                 
                 const authorHeader = document.createElement('div');
-                authorHeader.className = 'header-cell';
+                authorHeader.className = 'header-cell cell-author';
                 authorHeader.textContent = 'Author';
+                authorHeader.dataset.sort = 'author';
+                authorHeader.dataset.status = status;
+                authorHeader.addEventListener('click', handleHeaderClick);
                 
                 const seriesHeader = document.createElement('div');
-                seriesHeader.className = 'header-cell';
+                seriesHeader.className = 'header-cell cell-series';
                 seriesHeader.textContent = 'Series';
+                seriesHeader.dataset.sort = 'series';
+                seriesHeader.dataset.status = status;
+                seriesHeader.addEventListener('click', handleHeaderClick);
                 
                 const ratingHeader = document.createElement('div');
-                ratingHeader.className = 'header-cell';
+                ratingHeader.className = 'header-cell cell-rating';
                 ratingHeader.textContent = 'Rating';
+                ratingHeader.dataset.sort = 'rating';
+                ratingHeader.dataset.status = status;
+                ratingHeader.addEventListener('click', handleHeaderClick);
                 
                 // Assemble header
                 headerRow.appendChild(titleHeader);
