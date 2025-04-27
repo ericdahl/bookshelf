@@ -21,6 +21,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteBookButton = document.getElementById('delete-book');
     const loadingOverlay = document.getElementById('loading-overlay');
     const ratingStars = document.querySelectorAll('.stars i');
+    const fullViewButton = document.getElementById('full-view');
+    const compactViewButton = document.getElementById('compact-view');
+    const shelvesContainer = document.querySelector('.shelves-container');
 
     // Current book being viewed/edited
     let currentBook = null;
@@ -228,6 +231,45 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Delete book
         deleteBookButton.addEventListener('click', deleteBook);
+        
+        // View toggle buttons
+        fullViewButton.addEventListener('click', () => {
+            setViewMode('full');
+        });
+        
+        compactViewButton.addEventListener('click', () => {
+            setViewMode('compact');
+        });
+        
+        // Load saved view preference
+        loadViewPreference();
+    }
+    
+    // Set the view mode (full or compact)
+    function setViewMode(mode) {
+        if (mode === 'compact') {
+            shelvesContainer.classList.add('compact-mode');
+            fullViewButton.classList.remove('active');
+            compactViewButton.classList.add('active');
+            // Save preference
+            localStorage.setItem('bookshelfViewMode', 'compact');
+        } else {
+            shelvesContainer.classList.remove('compact-mode');
+            fullViewButton.classList.add('active');
+            compactViewButton.classList.remove('active');
+            // Save preference
+            localStorage.setItem('bookshelfViewMode', 'full');
+        }
+    }
+    
+    // Load saved view preference
+    function loadViewPreference() {
+        const savedMode = localStorage.getItem('bookshelfViewMode');
+        if (savedMode === 'compact') {
+            setViewMode('compact');
+        } else {
+            setViewMode('full'); // Default to full view
+        }
     }
 
     // Initialize drag and drop
@@ -244,6 +286,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Update the book status on the server
                     updateBookStatus(bookId, newStatus);
+                },
+                // Disable drag and drop in compact mode by checking the view mode
+                disabled: function() {
+                    return shelvesContainer.classList.contains('compact-mode');
                 }
             });
         });

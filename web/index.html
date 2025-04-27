@@ -11,9 +11,15 @@
 <body>
     <header>
         <h1>My Bookshelf</h1>
-        <div class="search-container">
-            <input type="text" id="search-input" placeholder="Search for books...">
-            <button id="search-button"><i class="fas fa-search"></i></button>
+        <div class="controls-container">
+            <div class="view-toggle">
+                <button id="full-view" class="view-button active" title="Full View"><i class="fas fa-th"></i></button>
+                <button id="compact-view" class="view-button" title="Compact View"><i class="fas fa-list"></i></button>
+            </div>
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="Search for books...">
+                <button id="search-button"><i class="fas fa-search"></i></button>
+            </div>
         </div>
     </header>
     

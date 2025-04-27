@@ -63,6 +63,38 @@ header {
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
+.controls-container {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.view-toggle {
+    display: flex;
+    background-color: #34495e;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.view-button {
+    background-color: transparent;
+    color: #95a5a6;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.view-button:hover {
+    background-color: #2c3e50;
+    color: #ecf0f1;
+}
+
+.view-button.active {
+    background-color: #3498db;
+    color: white;
+}
+
 .search-container {
     display: flex;
     gap: 10px;
@@ -425,11 +457,119 @@ main {
     100% { transform: rotate(360deg); }
 }
 
+/* Compact View Styles */
+.compact-mode .books-container {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.compact-mode .book-card {
+    display: table-row;
+    width: 100%;
+    height: auto;
+    background-color: white;
+    border: none;
+    box-shadow: none;
+    border-bottom: 1px solid #ecf0f1;
+    transition: background-color 0.2s;
+    cursor: pointer;
+}
+
+.compact-mode .book-card:hover {
+    transform: none;
+    box-shadow: none;
+    background-color: #f5f7f8;
+}
+
+.compact-mode .book-card:nth-child(odd) {
+    background-color: #f9fafb;
+}
+
+.compact-mode .book-cover {
+    display: none;
+}
+
+.compact-mode .book-info {
+    display: table-cell;
+    padding: 12px 15px;
+    vertical-align: middle;
+}
+
+.compact-mode .book-title {
+    display: block;
+    font-size: 15px;
+    margin: 0;
+    white-space: normal;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: unset;
+}
+
+.compact-mode .book-author {
+    display: block;
+    margin: 3px 0 0 0;
+    color: #7f8c8d;
+    white-space: normal;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: unset;
+}
+
+.compact-mode .book-series {
+    display: block;
+    margin: 3px 0 0 0;
+    color: #3498db;
+    font-style: italic;
+    white-space: normal;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: unset;
+}
+
+.compact-mode .book-rating {
+    display: inline-block;
+    margin-top: 5px;
+    color: #f39c12;
+    font-weight: bold;
+}
+
+/* Column Headers for Compact View */
+.compact-mode .books-container::before {
+    content: "";
+    display: table-row;
+    background-color: #ecf0f1;
+    font-weight: bold;
+}
+
+.compact-mode .books-container::after {
+    content: "Title";
+    display: table-cell;
+    padding: 10px 15px;
+    font-weight: bold;
+    text-align: left;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
     header {
         flex-direction: column;
         gap: 1rem;
+    }
+    
+    .controls-container {
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+    }
+    
+    .search-container {
+        width: 100%;
+    }
+    
+    #search-input {
+        flex: 1;
     }
     
     .book-details-content {
