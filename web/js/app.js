@@ -178,6 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
         card.dataset.id = book.id;
         
         const coverUrl = book.cover_url || 'https://via.placeholder.com/150x200?text=No+Cover';
+        const ratingHtml = book.rating ? `<p class="book-rating">Rating: ${book.rating}/10</p>` : '';
         
         card.innerHTML = `
             <div class="book-cover">
@@ -186,6 +187,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="book-info">
                 <h3 class="book-title">${book.title}</h3>
                 <p class="book-author">${book.author}</p>
+                ${ratingHtml}
             </div>
         `;
         
@@ -319,6 +321,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 star.className = 'far fa-star';
             }
         });
+        
+        // Update the rating value text
+        const ratingText = rating > 0 ? rating.toString() : "None";
+        document.getElementById('rating-value').textContent = ratingText;
     }
     
     // Update rating UI
@@ -330,6 +336,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 star.className = 'far fa-star';
             }
         });
+        
+        // Update the rating value text
+        const ratingText = rating > 0 ? rating.toString() : "None";
+        document.getElementById('rating-value').textContent = ratingText;
     }
 
     // Save book details

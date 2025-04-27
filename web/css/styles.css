@@ -174,6 +174,15 @@ main {
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    margin-bottom: 3px;
+}
+
+.book-rating {
+    font-size: 11px;
+    color: #f39c12;
+    margin-top: 2px;
+    line-height: 1;
+    font-weight: bold;
 }
 
 /* Search results styles */
@@ -247,6 +256,11 @@ main {
 
 .rating-container {
     margin: 1rem 0;
+}
+
+#rating-value {
+    font-weight: bold;
+    color: #f39c12;
 }
 
 .stars {
