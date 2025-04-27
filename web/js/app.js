@@ -39,6 +39,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Initialize drag and drop
         initDragAndDrop();
+        
+        // Initialize shelf sorting
+        initShelfSorting();
+    }
+    
+    // Initialize sorting functionality for each shelf
+    function initShelfSorting() {
+        const sortSelects = document.querySelectorAll('.sort-select');
+        
+        sortSelects.forEach(select => {
+            // Set default sort value
+            select.value = 'title';
+            
+            // Add change event listener
+            select.addEventListener('change', function() {
+                const status = this.getAttribute('data-status');
+                const sortBy = this.value;
+                sortShelfBooks(status, sortBy);
+            });
+        });
     }
 
     // Load all books from the server
@@ -52,10 +72,30 @@ document.addEventListener('DOMContentLoaded', function() {
                     shelf.innerHTML = '';
                 });
                 
-                // Add books to their respective shelves
+                // Group books by status
+                const booksByStatus = {
+                    'Want to Read': [],
+                    'Currently Reading': [],
+                    'Read': []
+                };
+                
                 books.forEach(book => {
-                    addBookToShelf(book);
+                    if (booksByStatus[book.status]) {
+                        booksByStatus[book.status].push(book);
+                    }
                 });
+                
+                // Sort each shelf's books by title (default) and add to shelf
+                Object.keys(booksByStatus).forEach(status => {
+                    const sortSelect = document.querySelector(`.sort-select[data-status="${status}"]`);
+                    const sortBy = sortSelect ? sortSelect.value : 'title';
+                    
+                    const sortedBooks = sortBooks(booksByStatus[status], sortBy);
+                    sortedBooks.forEach(book => {
+                        addBookToShelf(book);
+                    });
+                });
+                
                 hideLoading();
             })
             .catch(error => {
@@ -63,6 +103,83 @@ document.addEventListener('DOMContentLoaded', function() {
                 hideLoading();
                 alert('Failed to load books. Please try again.');
             });
+    }
+    
+    // Sort an array of books by the given criteria
+    function sortBooks(books, sortBy) {
+        return [...books].sort((a, b) => {
+            switch (sortBy) {
+                case 'title':
+                    return a.title.localeCompare(b.title);
+                case 'author':
+                    return a.author.localeCompare(b.author);
+                case 'rating':
+                    // Handle null ratings (null ratings go at the end)
+                    if (a.rating === null && b.rating === null) return 0;
+                    if (a.rating === null) return 1;
+                    if (b.rating === null) return -1;
+                    // Sort by rating in descending order (higher ratings first)
+                    return b.rating - a.rating;
+                default:
+                    return 0;
+            }
+        });
+    }
+    
+    // Sort books in a specific shelf
+    function sortShelfBooks(status, sortBy) {
+        // Get all books from this shelf
+        const shelf = document.querySelector(`.books-container[data-status="${status}"]`);
+        if (!shelf) return;
+        
+        // Get all book cards in this shelf
+        const bookCards = Array.from(shelf.querySelectorAll('.book-card'));
+        
+        // Map to objects with data for sorting
+        const booksData = bookCards.map(card => {
+            const id = card.dataset.id;
+            const title = card.querySelector('.book-title').textContent;
+            const author = card.querySelector('.book-author').textContent;
+            
+            // Parse rating if it exists
+            let rating = null;
+            const ratingElem = card.querySelector('.book-rating');
+            if (ratingElem) {
+                const ratingMatch = ratingElem.textContent.match(/(\d+)/);
+                if (ratingMatch) {
+                    rating = parseInt(ratingMatch[1], 10);
+                }
+            }
+            
+            return { element: card, id, title, author, rating };
+        });
+        
+        // Sort books
+        const sortedBooks = [...booksData].sort((a, b) => {
+            switch (sortBy) {
+                case 'title':
+                    return a.title.localeCompare(b.title);
+                case 'author':
+                    return a.author.localeCompare(b.author);
+                case 'rating':
+                    // Handle null ratings (null ratings go at the end)
+                    if (a.rating === null && b.rating === null) return 0;
+                    if (a.rating === null) return 1;
+                    if (b.rating === null) return -1;
+                    // Sort by rating in descending order (higher ratings first)
+                    return b.rating - a.rating;
+                default:
+                    return 0;
+            }
+        });
+        
+        // Remove all books from shelf
+        bookCards.forEach(card => card.remove());
+        
+        // Add back in sorted order
+        sortedBooks.forEach(book => {
+            shelf.appendChild(book.element);
+        });
     }
 
     // Set up event listeners
