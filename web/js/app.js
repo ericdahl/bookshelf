@@ -811,7 +811,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const ratingElement = bookCard.querySelector('.book-rating');
             if (book.rating) {
                 if (ratingElement) {
-                    ratingElement.textContent = `Rating: ${book.rating}/10`;
+                    ratingElement.textContent = `${book.rating}/10`;
                 } else {
                     const bookInfo = bookCard.querySelector('.book-info');
                     const ratingP = document.createElement('p');
