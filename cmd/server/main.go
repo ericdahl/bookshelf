@@ -12,6 +12,21 @@ import (
 	"github.com/ericdahl/bookshelf/internal/db"
 )
 
+func checkWebDir(webDir string) error {
+	webDirAbs, err := filepath.Abs(webDir)
+	if err != nil {
+		return fmt.Errorf("could not determine absolute path for web directory '%s': %v", webDir, err)
+	}
+	
+	if _, err := os.Stat(webDirAbs); os.IsNotExist(err) {
+		return fmt.Errorf("web directory '%s' (absolute: '%s') does not exist", webDir, webDirAbs)
+	} else if err != nil {
+		return fmt.Errorf("error checking web directory '%s': %v", webDirAbs, err)
+	}
+	
+	return nil
+}
+
 func main() {
 	// --- Configuration ---
 	// Define command-line flags
@@ -62,11 +77,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("FATAL: Could not determine absolute path for web directory '%s': %v", *webDir, err)
 	}
-	if _, err := os.Stat(webDirAbs); os.IsNotExist(err) {
-		log.Fatalf("FATAL: Web directory '%s' (absolute: '%s') does not exist. Please create it or specify a valid directory using --web-dir.", *webDir, webDirAbs)
-	} else if err != nil {
-		log.Fatalf("FATAL: Error checking web directory '%s': %v", webDirAbs, err)
+	
+	if err := checkWebDir(*webDir); err != nil {
+		log.Fatalf("FATAL: %v. Please create it or specify a valid directory using --web-dir.", err)
 	}
+	
 	log.Printf("Serving static files from: %s", webDirAbs)
 
 	router := api.SetupRouter(apiHandler, webDirAbs) // Pass absolute path
