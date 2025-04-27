@@ -3,6 +3,7 @@ package api
 import (
 	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -39,17 +40,25 @@ func SetupRouter(apiHandler *APIHandler, webDir string) *mux.Router {
 	apiRouter.HandleFunc("/books", apiHandler.AddBookHandler).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/books/{id:[0-9]+}", apiHandler.UpdateBookStatusHandler).Methods(http.MethodPut)          // For status update
 	apiRouter.HandleFunc("/books/{id:[0-9]+}/details", apiHandler.UpdateBookDetailsHandler).Methods(http.MethodPut) // For rating/comments
-	apiRouter.HandleFunc("/search", apiHandler.SearchBooksHandler).Methods(http.MethodGet)                          // Expects ?q=query
-
-	// TODO: Add DELETE /api/books/{id} route later
+	apiRouter.HandleFunc("/books/search", apiHandler.SearchBooksHandler).Methods(http.MethodGet)                    // Expects ?q=query
+	apiRouter.HandleFunc("/books/{id:[0-9]+}", apiHandler.DeleteBookHandler).Methods(http.MethodDelete)             // Delete a book
 
 	// Static File Server for Frontend
-	// Serve files from the 'web' directory.
-	// Use PathPrefix("/") to catch all non-API routes.
-	// Ensure this is registered *after* the API routes.
+	// Serve files from the web directory.
 	fs := http.FileServer(http.Dir(webDir))
-	// Use NoDirListing handler to prevent directory browsing
-	r.PathPrefix("/").Handler(NoDirListing(fs))
+
+	// Serve index.html for all non-API routes to support SPA routing
+	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check if the request is for a file (has an extension)
+		if strings.Contains(r.URL.Path, ".") {
+			// Serve the file directly
+			fs.ServeHTTP(w, r)
+			return
+		}
+
+		// For all other routes, serve index.html to support client-side routing
+		http.ServeFile(w, r, filepath.Join(webDir, "index.html"))
+	})
 
 	log.Println("Router setup complete.")
 	return r

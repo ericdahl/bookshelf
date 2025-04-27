@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/your-username/bookshelf/internal/db" // Adjust import path
+	"github.com/your-username/bookshelf/internal/db"    // Adjust import path
 	"github.com/your-username/bookshelf/internal/model" // Adjust import path
 )
 
@@ -148,7 +148,6 @@ func (h *APIHandler) AddBookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	// Add the book to the database
 	newID, err := h.Store.AddBook(&book)
 	if err != nil {
@@ -257,6 +256,24 @@ func (h *APIHandler) UpdateBookDetailsHandler(w http.ResponseWriter, r *http.Req
 	respondWithJSON(w, http.StatusOK, map[string]string{"message": "Book details updated successfully"})
 }
 
+// DeleteBookHandler handles the deletion of a book
+func (h *APIHandler) DeleteBookHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.ParseInt(vars["id"], 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		return
+	}
+
+	err = h.Store.DeleteBook(id)
+	if err != nil {
+		log.Printf("Error deleting book: %v", err)
+		http.Error(w, "Failed to delete book", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
 
 // --- Open Library Search Handler ---
 
@@ -264,8 +281,8 @@ func (h *APIHandler) UpdateBookDetailsHandler(w http.ResponseWriter, r *http.Req
 type OpenLibrarySearchResult struct {
 	OpenLibraryID string  `json:"open_library_id"` // e.g., OL7353617M
 	Title         string  `json:"title"`
-	Author        string  `json:"author"` // Combined author names
-	ISBN          *string `json:"isbn,omitempty"` // First available ISBN-13 or ISBN-10
+	Author        string  `json:"author"`              // Combined author names
+	ISBN          *string `json:"isbn,omitempty"`      // First available ISBN-13 or ISBN-10
 	CoverURL      *string `json:"cover_url,omitempty"` // URL for medium cover
 }
 
@@ -274,16 +291,15 @@ type OpenLibrarySearchResult struct {
 type openLibrarySearchResponse struct {
 	NumFound int `json:"numFound"`
 	Docs     []struct {
-		Key            string   `json:"key"`            // e.g., "/works/OL7353617M"
-		Title          string   `json:"title"`
-		AuthorName     []string `json:"author_name"`    // Array of author names
-		ISBN           []string `json:"isbn"`           // Array of ISBNs (10 and 13)
-		CoverI         int      `json:"cover_i"`        // Cover ID (integer)
-		AuthorKey      []string `json:"author_key"`     // Array of author IDs
-		FirstPublishYear int    `json:"first_publish_year"`
+		Key              string   `json:"key"` // e.g., "/works/OL7353617M"
+		Title            string   `json:"title"`
+		AuthorName       []string `json:"author_name"` // Array of author names
+		ISBN             []string `json:"isbn"`        // Array of ISBNs (10 and 13)
+		CoverI           int      `json:"cover_i"`     // Cover ID (integer)
+		AuthorKey        []string `json:"author_key"`  // Array of author IDs
+		FirstPublishYear int      `json:"first_publish_year"`
 	} `json:"docs"`
 }
-
 
 // SearchBooksHandler handles GET /api/search?q={query}
 func (h *APIHandler) SearchBooksHandler(w http.ResponseWriter, r *http.Request) {
@@ -297,7 +313,6 @@ func (h *APIHandler) SearchBooksHandler(w http.ResponseWriter, r *http.Request) 
 	// Using the works search endpoint as it often has better consolidated data
 	apiURL := fmt.Sprintf("https://openlibrary.org/search.json?q=%s&fields=key,title,author_name,isbn,cover_i,author_key,first_publish_year&limit=20", url.QueryEscape(query))
 	log.Printf("Querying Open Library: %s", apiURL)
-
 
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
 	if err != nil {
@@ -359,7 +374,6 @@ func (h *APIHandler) SearchBooksHandler(w http.ResponseWriter, r *http.Request) 
 			url := fmt.Sprintf("https://covers.openlibrary.org/b/id/%d-M.jpg", doc.CoverI)
 			coverURL = &url
 		}
-
 
 		result := OpenLibrarySearchResult{
 			OpenLibraryID: olid,

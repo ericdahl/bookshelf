@@ -15,6 +15,7 @@ type BookStore interface {
 	GetBookByID(id int64) (*model.Book, error)
 	UpdateBookStatus(id int64, status model.BookStatus) error
 	UpdateBookDetails(id int64, rating *int, comments *string) error
+	DeleteBook(id int64) error
 	// DeleteBook(id int64) error // Future enhancement
 }
 
@@ -258,10 +259,23 @@ func (s *SQLiteBookStore) UpdateBookDetails(id int64, rating *int, comments *str
 	return nil
 }
 
-// DeleteBook (Placeholder for future enhancement)
-// func (s *SQLiteBookStore) DeleteBook(id int64) error {
-//     query := `DELETE FROM books WHERE id = ?;`
-//     log.Printf("SQL: Executing DeleteBook query for ID: %d", id)
-//     // ... implementation ...
-//     return nil
-// }
+// DeleteBook removes a book from the database by its ID.
+func (s *SQLiteBookStore) DeleteBook(id int64) error {
+	query := `DELETE FROM books WHERE id = ?;`
+
+	result, err := s.DB.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete book: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("book with ID %d not found", id)
+	}
+
+	return nil
+}
