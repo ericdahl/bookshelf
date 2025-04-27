@@ -421,10 +421,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Update the book status on the server
                     updateBookStatus(bookId, newStatus);
-                },
-                // Disable drag and drop in compact mode by checking the view mode
-                disabled: function() {
-                    return shelvesContainer.classList.contains('compact-mode');
                 }
             });
         });

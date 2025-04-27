@@ -493,13 +493,17 @@ main {
     box-shadow: none;
     border-bottom: 1px solid #ecf0f1;
     transition: background-color 0.2s;
-    cursor: pointer;
+    cursor: grab;
 }
 
 .compact-mode .book-card:hover {
     transform: none;
     box-shadow: none;
     background-color: #f5f7f8;
+}
+
+.compact-mode .book-card:active {
+    cursor: grabbing;
 }
 
 .compact-mode .book-card:nth-child(odd) {
@@ -522,6 +526,7 @@ main {
     padding: 12px 15px;
     vertical-align: middle;
     border-right: 1px solid #f1f1f1;
+    user-select: none; /* Prevent text selection while dragging */
 }
 
 .compact-mode .cell-title {
