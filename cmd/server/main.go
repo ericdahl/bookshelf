@@ -17,13 +17,13 @@ func checkWebDir(webDir string) error {
 	if err != nil {
 		return fmt.Errorf("could not determine absolute path for web directory '%s': %v", webDir, err)
 	}
-	
+
 	if _, err := os.Stat(webDirAbs); os.IsNotExist(err) {
 		return fmt.Errorf("web directory '%s' (absolute: '%s') does not exist", webDir, webDirAbs)
 	} else if err != nil {
 		return fmt.Errorf("error checking web directory '%s': %v", webDirAbs, err)
 	}
-	
+
 	return nil
 }
 
@@ -35,28 +35,34 @@ func main() {
 	defaultDbPath := "./bookshelf.db"
 	dbFile := flag.String("db-file", defaultDbPath, "Path to the SQLite database file")
 	webDir := flag.String("web-dir", "./web", "Directory containing static web assets (HTML, CSS, JS)")
+	verbose := flag.Bool("verbose", false, "Enable verbose logging (Debug level)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
 		flag.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), "\nExample:\n  %s --port 8081 --db-file /data/mybooks.db --web-dir ./static\n", os.Args[0])
+		fmt.Fprintf(flag.CommandLine.Output(), "\nExample:\n  %s --port 8081 --db-file /data/mybooks.db --web-dir ./static --verbose\n", os.Args[0])
 	}
 
 	flag.Parse()
 
 	// --- Logging Setup ---
 	// Using slog structured logging with JSON handler
+	logLevel := slog.LevelInfo
+	if *verbose {
+		logLevel = slog.LevelDebug
+	}
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: logLevel,
 	}))
 	slog.SetDefault(logger)
-	
-	slog.Info("Starting Bookshelf application...")
-	slog.Info("Configuration", 
-		"port", *port, 
-		"dbFile", *dbFile, 
-		"webDir", *webDir)
 
+	slog.Info("Starting Bookshelf application...")
+	slog.Info("Configuration",
+		"port", *port,
+		"dbFile", *dbFile,
+		"webDir", *webDir,
+		"verbose", *verbose)
 
 	// --- Dependency Injection ---
 	// Initialize Database
@@ -85,12 +91,12 @@ func main() {
 		slog.Error("Could not determine absolute path for web directory", "webDir", *webDir, "error", err)
 		os.Exit(1)
 	}
-	
+
 	if err := checkWebDir(*webDir); err != nil {
 		slog.Error("Web directory error", "error", err, "help", "Please create it or specify a valid directory using --web-dir.")
 		os.Exit(1)
 	}
-	
+
 	slog.Info("Serving static files", "path", webDirAbs)
 
 	router := api.SetupRouter(apiHandler, webDirAbs) // Pass absolute path

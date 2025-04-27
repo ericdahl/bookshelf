@@ -12,46 +12,60 @@ func TestParseFlags(t *testing.T) {
 	defer func() { os.Args = oldArgs }()
 
 	testCases := []struct {
-		name     string
-		args     []string
-		wantPort int
-		wantDB   string
-		wantWeb  string
+		name        string
+		args        []string
+		wantPort    int
+		wantDB      string
+		wantWeb     string
+		wantVerbose bool
 	}{
 		{
-			name:     "default values",
-			args:     []string{"cmd"},
-			wantPort: 8080,
-			wantDB:   "./bookshelf.db",
-			wantWeb:  "./web",
+			name:        "default values",
+			args:        []string{"cmd"},
+			wantPort:    8080,
+			wantDB:      "./bookshelf.db",
+			wantWeb:     "./web",
+			wantVerbose: false,
 		},
 		{
-			name:     "custom port",
-			args:     []string{"cmd", "--port", "9090"},
-			wantPort: 9090,
-			wantDB:   "./bookshelf.db",
-			wantWeb:  "./web",
+			name:        "custom port",
+			args:        []string{"cmd", "--port", "9090"},
+			wantPort:    9090,
+			wantDB:      "./bookshelf.db",
+			wantWeb:     "./web",
+			wantVerbose: false,
 		},
 		{
-			name:     "custom db file",
-			args:     []string{"cmd", "--db-file", "/tmp/test.db"},
-			wantPort: 8080,
-			wantDB:   "/tmp/test.db",
-			wantWeb:  "./web",
+			name:        "custom db file",
+			args:        []string{"cmd", "--db-file", "/tmp/test.db"},
+			wantPort:    8080,
+			wantDB:      "/tmp/test.db",
+			wantWeb:     "./web",
+			wantVerbose: false,
 		},
 		{
-			name:     "custom web dir",
-			args:     []string{"cmd", "--web-dir", "/tmp/web"},
-			wantPort: 8080,
-			wantDB:   "./bookshelf.db",
-			wantWeb:  "/tmp/web",
+			name:        "custom web dir",
+			args:        []string{"cmd", "--web-dir", "/tmp/web"},
+			wantPort:    8080,
+			wantDB:      "./bookshelf.db",
+			wantWeb:     "/tmp/web",
+			wantVerbose: false,
 		},
 		{
-			name:     "all custom values",
-			args:     []string{"cmd", "--port", "9090", "--db-file", "/tmp/test.db", "--web-dir", "/tmp/web"},
-			wantPort: 9090,
-			wantDB:   "/tmp/test.db",
-			wantWeb:  "/tmp/web",
+			name:        "verbose mode",
+			args:        []string{"cmd", "--verbose"},
+			wantPort:    8080,
+			wantDB:      "./bookshelf.db",
+			wantWeb:     "./web",
+			wantVerbose: true,
+		},
+		{
+			name:        "all custom values",
+			args:        []string{"cmd", "--port", "9090", "--db-file", "/tmp/test.db", "--web-dir", "/tmp/web", "--verbose"},
+			wantPort:    9090,
+			wantDB:      "/tmp/test.db",
+			wantWeb:     "/tmp/web",
+			wantVerbose: true,
 		},
 	}
 
@@ -67,6 +81,7 @@ func TestParseFlags(t *testing.T) {
 			port := flag.Int("port", 8080, "Port number for the HTTP server")
 			dbFile := flag.String("db-file", "./bookshelf.db", "Path to the SQLite database file")
 			webDir := flag.String("web-dir", "./web", "Directory containing static web assets")
+			verbose := flag.Bool("verbose", false, "Enable verbose logging (Debug level)")
 			flag.Parse()
 
 			// Check results
@@ -78,6 +93,9 @@ func TestParseFlags(t *testing.T) {
 			}
 			if *webDir != tc.wantWeb {
 				t.Errorf("webDir = %s; want %s", *webDir, tc.wantWeb)
+			}
+			if *verbose != tc.wantVerbose {
+				t.Errorf("verbose = %v; want %v", *verbose, tc.wantVerbose)
 			}
 		})
 	}
