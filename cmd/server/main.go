@@ -36,25 +36,42 @@ func main() {
 	dbFile := flag.String("db-file", defaultDbPath, "Path to the SQLite database file")
 	webDir := flag.String("web-dir", "./web", "Directory containing static web assets (HTML, CSS, JS)")
 	verbose := flag.Bool("verbose", false, "Enable verbose logging (Debug level)")
+	logFormat := flag.String("log-format", "text", "Log format: 'json' or 'text' (default: text)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
 		flag.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), "\nExample:\n  %s --port 8081 --db-file /data/mybooks.db --web-dir ./static --verbose\n", os.Args[0])
+		fmt.Fprintf(flag.CommandLine.Output(), "\nExample:\n  %s --port 8081 --db-file /data/mybooks.db --web-dir ./static --verbose --log-format json\n", os.Args[0])
 	}
 
 	flag.Parse()
 
+	// Validate log format
+	if *logFormat != "json" && *logFormat != "text" {
+		fmt.Fprintf(os.Stderr, "Error: log-format must be either 'json' or 'text', got '%s'\n", *logFormat)
+		os.Exit(1)
+	}
+
 	// --- Logging Setup ---
-	// Using slog structured logging with JSON handler
+	// Set log level based on verbose flag
 	logLevel := slog.LevelInfo
 	if *verbose {
 		logLevel = slog.LevelDebug
 	}
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: logLevel,
-	}))
+	// Configure logger based on format
+	var handler slog.Handler
+	if *logFormat == "json" {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: logLevel,
+		})
+	} else {
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: logLevel,
+		})
+	}
+
+	logger := slog.New(handler)
 	slog.SetDefault(logger)
 
 	slog.Info("Starting Bookshelf application...")
@@ -62,7 +79,8 @@ func main() {
 		"port", *port,
 		"dbFile", *dbFile,
 		"webDir", *webDir,
-		"verbose", *verbose)
+		"verbose", *verbose,
+		"logFormat", *logFormat)
 
 	// --- Dependency Injection ---
 	// Initialize Database
