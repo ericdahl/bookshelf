@@ -92,6 +92,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateRatingUI(rating);
                 currentRating = rating;
             });
+            
+            // Add hover effect
+            star.addEventListener('mouseenter', function() {
+                const rating = parseInt(this.dataset.rating);
+                previewRating(rating);
+            });
+        });
+        
+        // Reset rating preview on mouseleave
+        document.querySelector('.stars').addEventListener('mouseleave', function() {
+            updateRatingUI(currentRating || 0);
         });
         
         // Save book details
@@ -299,6 +310,17 @@ document.addEventListener('DOMContentLoaded', function() {
         bookDetails.classList.remove('hidden');
     }
 
+    // Preview rating on hover
+    function previewRating(rating) {
+        ratingStars.forEach((star, index) => {
+            if (index < rating) {
+                star.className = 'fas fa-star';
+            } else {
+                star.className = 'far fa-star';
+            }
+        });
+    }
+    
     // Update rating UI
     function updateRatingUI(rating) {
         ratingStars.forEach((star, index) => {
