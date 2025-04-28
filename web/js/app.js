@@ -400,10 +400,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const title = card.querySelector('.book-title').textContent;
         const author = card.querySelector('.book-author').textContent;
         
+        // Check if book is an audiobook
+        const typeElement = card.querySelector('.book-type');
+        const isAudiobook = typeElement && typeElement.textContent.includes('Audiobook');
+        
         // Create table cells
         const titleCell = document.createElement('div');
         titleCell.className = 'cell-title';
-        titleCell.innerHTML = `<div class="book-title">${title}</div>`;
+        const typeIcon = isAudiobook ? '<i class="fas fa-headphones"></i> ' : '';
+        titleCell.innerHTML = `<div class="book-title">${typeIcon}${title}</div>`;
         
         const authorCell = document.createElement('div');
         authorCell.className = 'cell-author';
@@ -564,6 +569,9 @@ document.addEventListener('DOMContentLoaded', function() {
             seriesHtml = `<p class="book-series">${book.series}</p>`;
         }
         
+        // Show book type if it's an audiobook (default type "book" isn't shown to keep UI clean)
+        const typeHtml = book.type === 'audiobook' ? `<p class="book-type"><i class="fas fa-headphones"></i> Audiobook</p>` : '';
+        
         card.innerHTML = `
             <div class="book-cover">
                 <img src="${coverUrl}" alt="${book.title} cover">
@@ -572,6 +580,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <h3 class="book-title">${book.title}</h3>
                 <p class="book-author">${book.author}</p>
                 ${seriesHtml}
+                ${typeHtml}
                 ${ratingHtml}
             </div>
         `;
@@ -637,6 +646,7 @@ document.addEventListener('DOMContentLoaded', function() {
             open_library_id: book.open_library_id,
             isbn: book.isbn || '',
             status: 'Want to Read',
+            type: 'book', // Set default type to "book"
             cover_url: book.cover_url || null
         };
         
@@ -743,6 +753,10 @@ document.addEventListener('DOMContentLoaded', function() {
         updateRatingUI(book.rating || 0);
         currentRating = book.rating || null;
         
+        // Update type radio buttons
+        document.getElementById('type-book').checked = book.type === 'book' || !book.type;
+        document.getElementById('type-audiobook').checked = book.type === 'audiobook';
+        
         // Update comments
         document.getElementById('book-comments').value = book.comments || '';
         
@@ -792,6 +806,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const comments = document.getElementById('book-comments').value.trim();
         const series = document.getElementById('book-series').value.trim();
+        const type = document.getElementById('type-audiobook').checked ? 'audiobook' : 'book';
         let seriesIndex = document.getElementById('book-series-index').value;
         
         // Convert seriesIndex to a number if it's not empty
@@ -823,7 +838,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 rating: currentRating,
                 comments: comments || null,
                 series: series || null,
-                series_index: seriesIndex
+                series_index: seriesIndex,
+                type: type
             })
         })
         .then(response => {
@@ -836,6 +852,7 @@ document.addEventListener('DOMContentLoaded', function() {
             currentBook.comments = comments || null;
             currentBook.series = series || null;
             currentBook.series_index = seriesIndex;
+            currentBook.type = type;
             
             // Update the book card in the shelf
             updateBookCardInShelf(currentBook);
@@ -913,6 +930,32 @@ document.addEventListener('DOMContentLoaded', function() {
                     ratingElement.remove();
                 }
                 
+                // Update type info if needed
+                let typeElement = bookCard.querySelector('.book-info .book-type');
+                if (book.type === 'audiobook') {
+                    if (typeElement) {
+                        typeElement.innerHTML = `<i class="fas fa-headphones"></i> Audiobook`;
+                    } else {
+                        const authorElement = bookInfo.querySelector('.book-author');
+                        
+                        const typeP = document.createElement('p');
+                        typeP.className = 'book-type';
+                        typeP.innerHTML = `<i class="fas fa-headphones"></i> Audiobook`;
+                        
+                        // Insert after author element or series element if it exists
+                        const seriesElement = bookInfo.querySelector('.book-series');
+                        const insertAfter = seriesElement || authorElement;
+                        
+                        if (insertAfter.nextSibling) {
+                            bookInfo.insertBefore(typeP, insertAfter.nextSibling);
+                        } else {
+                            bookInfo.appendChild(typeP);
+                        }
+                    }
+                } else if (typeElement) {
+                    typeElement.remove();
+                }
+                
                 // Update series info if needed
                 let seriesElement = bookCard.querySelector('.book-info .book-series');
                 if (book.series) {
@@ -964,6 +1007,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else {
                         seriesCell.innerHTML = `<div class="book-series">-</div>`;
                     }
+                }
+                
+                // Update title cell with type icon for audiobooks
+                const titleCell = bookCard.querySelector('.cell-title');
+                if (titleCell) {
+                    const titleText = book.title;
+                    const typeIcon = book.type === 'audiobook' ? '<i class="fas fa-headphones"></i> ' : '';
+                    titleCell.innerHTML = `<div class="book-title">${typeIcon}${titleText}</div>`;
                 }
             }
         }
