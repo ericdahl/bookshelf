@@ -257,6 +257,37 @@ func (h *APIHandler) UpdateBookDetailsHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// If only some fields are provided, get existing book to preserve other fields
+	var existingBook *model.Book
+	if payload.Rating != nil && payload.Comments == nil || 
+	   payload.Rating == nil && payload.Comments != nil ||
+	   payload.Series != nil && (payload.SeriesIndex == nil && !(*payload.Series == "")) {
+		var err error
+		existingBook, err = h.Store.GetBookByID(id)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				respondWithError(w, http.StatusNotFound, err.Error())
+			} else {
+				respondWithError(w, http.StatusInternalServerError, "Failed to retrieve book: "+err.Error())
+			}
+			return
+		}
+	}
+
+	// Preserve existing values if not provided in the update
+	if payload.Rating == nil && existingBook != nil {
+		payload.Rating = existingBook.Rating
+	}
+	if payload.Comments == nil && existingBook != nil {
+		payload.Comments = existingBook.Comments
+	}
+	if payload.Series == nil && existingBook != nil {
+		payload.Series = existingBook.Series
+	}
+	if payload.SeriesIndex == nil && existingBook != nil {
+		payload.SeriesIndex = existingBook.SeriesIndex
+	}
+
 	// Perform the update
 	err = h.Store.UpdateBookDetails(id, payload.Rating, payload.Comments, payload.Series, payload.SeriesIndex)
 	if err != nil {
@@ -277,14 +308,19 @@ func (h *APIHandler) DeleteBookHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseInt(vars["id"], 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, "Invalid book ID")
 		return
 	}
 
 	err = h.Store.DeleteBook(id)
 	if err != nil {
 		slog.Error("Error deleting book", "error", err, "id", id)
-		http.Error(w, "Failed to delete book", http.StatusInternalServerError)
+		// Check if book not found
+		if strings.Contains(err.Error(), "not found") {
+			respondWithError(w, http.StatusNotFound, err.Error())
+		} else {
+			respondWithError(w, http.StatusInternalServerError, "Failed to delete book")
+		}
 		return
 	}
 
@@ -384,8 +420,45 @@ func (h *APIHandler) SearchBooksHandler(w http.ResponseWriter, r *http.Request) 
 		existingBooksMap[book.OpenLibraryID] = book
 	}
 
+	// Also check for books in the local database matching the search query
+	booksInDB, err := h.Store.GetBooks()
+	if err != nil {
+		slog.Error("Error retrieving books from database for search", "error", err)
+		// Continue with API results only
+	} else {
+		// Filter books that match the search query in title or author
+		queryLower := strings.ToLower(query)
+		for _, book := range booksInDB {
+			if strings.Contains(strings.ToLower(book.Title), queryLower) || 
+			   strings.Contains(strings.ToLower(book.Author), queryLower) {
+				// Make sure this book's OpenLibraryID is in the existingBooksMap
+				existingBooksMap[book.OpenLibraryID] = book
+			}
+		}
+	}
+
 	// Transform the results into our desired format
 	results := []OpenLibrarySearchResult{}
+
+	// First add books from database that match the search query
+	for id, book := range existingBooksMap {
+		if strings.Contains(strings.ToLower(book.Title), strings.ToLower(query)) || 
+		   strings.Contains(strings.ToLower(book.Author), strings.ToLower(query)) {
+			shelf := string(book.Status)
+			result := OpenLibrarySearchResult{
+				OpenLibraryID: id,
+				Title:         book.Title,
+				Author:        book.Author,
+				ISBN:          &book.ISBN,
+				CoverURL:      book.CoverURL,
+				ExistingID:    &book.ID,
+				ExistingShelf: &shelf,
+			}
+			results = append(results, result)
+		}
+	}
+
+	// Then add results from the API
 	for _, doc := range olResponse.Docs {
 		// Extract OpenLibrary ID from the key (e.g., "/works/OL7353617M" -> "OL7353617M")
 		parts := strings.Split(doc.Key, "/")
@@ -395,6 +468,11 @@ func (h *APIHandler) SearchBooksHandler(w http.ResponseWriter, r *http.Request) 
 		}
 		if olid == "" {
 			continue // Skip if we can't get an ID
+		}
+
+		// Skip if we already added this book from the local database
+		if _, exists := existingBooksMap[olid]; exists {
+			continue
 		}
 
 		// Find a suitable ISBN (prefer ISBN-13)

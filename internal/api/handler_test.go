@@ -317,3 +317,228 @@ func TestDeleteBookHandler(t *testing.T) {
 		t.Errorf("Book was not deleted from the database")
 	}
 }
+
+// TestSearchBooksHandler tests the GET /api/books/search endpoint
+func TestSearchBooksHandler(t *testing.T) {
+	// Add test books with different titles and authors
+	book1 := createTestBook(model.StatusWantToRead, "Search1")
+	book1.Title = "The Great Gatsby"
+	book1.Author = "F. Scott Fitzgerald"
+	_, err := testStore.AddBook(book1)
+	if err != nil {
+		t.Fatalf("Failed to add test book: %v", err)
+	}
+
+	book2 := createTestBook(model.StatusCurrentlyReading, "Search2")
+	book2.Title = "The Great Adventure"
+	book2.Author = "John Smith"
+	_, err = testStore.AddBook(book2)
+	if err != nil {
+		t.Fatalf("Failed to add test book: %v", err)
+	}
+
+	// Test search by title
+	req, err := http.NewRequest("GET", "/api/books/search?q=Great", nil)
+	if err != nil {
+		t.Fatalf("Could not create request: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	testRouter.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var books []model.Book
+	if err := json.Unmarshal(rr.Body.Bytes(), &books); err != nil {
+		t.Fatalf("Could not unmarshal response: %v", err)
+	}
+
+	// Verify that both books are in the results
+	foundGatsby := false
+	foundAdventure := false
+	for _, book := range books {
+		if book.Title == "The Great Gatsby" {
+			foundGatsby = true
+		}
+		if book.Title == "The Great Adventure" {
+			foundAdventure = true
+		}
+	}
+
+	if !foundGatsby {
+		t.Error("The Great Gatsby was not found in search results")
+	}
+	if !foundAdventure {
+		t.Error("The Great Adventure was not found in search results")
+	}
+}
+
+// TestAddBookHandlerInvalidInput tests the POST /api/books endpoint with invalid input
+func TestAddBookHandlerInvalidInput(t *testing.T) {
+	// Test with missing required fields
+	invalidBook := map[string]interface{}{
+		"title":  "", // Empty title
+		"author": "Test Author",
+	}
+	jsonData, err := json.Marshal(invalidBook)
+	if err != nil {
+		t.Fatalf("Failed to marshal JSON: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "/api/books", bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Fatalf("Could not create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	testRouter.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
+	}
+}
+
+// TestUpdateBookStatusHandlerInvalidStatus tests the PUT /api/books/{id} endpoint with invalid status
+func TestUpdateBookStatusHandlerInvalidStatus(t *testing.T) {
+	// Add test book
+	book := createTestBook(model.StatusWantToRead, "InvalidStatus")
+	id, err := testStore.AddBook(book)
+	if err != nil {
+		t.Fatalf("Failed to add test book: %v", err)
+	}
+
+	// Try to update with invalid status
+	updateData := map[string]string{
+		"status": "InvalidStatus",
+	}
+	jsonData, err := json.Marshal(updateData)
+	if err != nil {
+		t.Fatalf("Failed to marshal JSON: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", "/api/books/"+itoa(id), bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Fatalf("Could not create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	testRouter.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
+	}
+}
+
+// TestUpdateNonExistentBook tests updating a book that doesn't exist
+func TestUpdateNonExistentBook(t *testing.T) {
+	// Try to update a non-existent book
+	updateData := map[string]string{
+		"status": string(model.StatusCurrentlyReading),
+	}
+	jsonData, err := json.Marshal(updateData)
+	if err != nil {
+		t.Fatalf("Failed to marshal JSON: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", "/api/books/99999", bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Fatalf("Could not create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	testRouter.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
+	}
+}
+
+// TestDeleteNonExistentBook tests deleting a book that doesn't exist
+func TestDeleteNonExistentBook(t *testing.T) {
+	req, err := http.NewRequest("DELETE", "/api/books/99999", nil)
+	if err != nil {
+		t.Fatalf("Could not create request: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	testRouter.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
+	}
+}
+
+// TestMalformedJSON tests handling of malformed JSON input
+func TestMalformedJSON(t *testing.T) {
+	// Create request with malformed JSON
+	malformedJSON := []byte(`{"title": "Test Book", "author": "Test Author", "status": invalid}`)
+	req, err := http.NewRequest("POST", "/api/books", bytes.NewBuffer(malformedJSON))
+	if err != nil {
+		t.Fatalf("Could not create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	testRouter.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
+	}
+}
+
+// TestUpdateBookDetailsHandlerPartialUpdate tests partial updates of book details
+func TestUpdateBookDetailsHandlerPartialUpdate(t *testing.T) {
+	// Add test book
+	book := createTestBook(model.StatusWantToRead, "PartialUpdate")
+	id, err := testStore.AddBook(book)
+	if err != nil {
+		t.Fatalf("Failed to add test book: %v", err)
+	}
+
+	// Update only the rating
+	updateData := map[string]interface{}{
+		"rating": 9,
+	}
+	jsonData, err := json.Marshal(updateData)
+	if err != nil {
+		t.Fatalf("Failed to marshal JSON: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", "/api/books/"+itoa(id)+"/details", bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Fatalf("Could not create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	testRouter.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Verify only rating was updated
+	updatedBook, err := testStore.GetBookByID(id)
+	if err != nil {
+		t.Fatalf("Failed to retrieve updated book: %v", err)
+	}
+
+	if updatedBook.Rating == nil {
+		t.Error("Book rating should not be nil after update")
+	} else if *updatedBook.Rating != 9 {
+		t.Errorf("Book rating not updated correctly, expected 9, got %d", *updatedBook.Rating)
+	}
+
+	// Only check comments if they were set in the original book
+	if book.Comments != nil {
+		if updatedBook.Comments == nil {
+			t.Error("Book comments should not be nil after update")
+		} else if *updatedBook.Comments != *book.Comments {
+			t.Errorf("Book comments should not have changed, expected %s, got %s", *book.Comments, *updatedBook.Comments)
+		}
+	}
+}
