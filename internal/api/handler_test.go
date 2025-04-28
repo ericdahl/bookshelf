@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/ericdahl/bookshelf/internal/db"
 	"github.com/ericdahl/bookshelf/internal/model"
 	"github.com/gorilla/mux"
+	"github.com/klauspost/compress/gzip"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -49,6 +51,7 @@ func setupTestAPI() error {
 
 	// Set up the router
 	testRouter = mux.NewRouter()
+	testRouter.Use(GzipMiddleware) // Add the gzip middleware for compression tests
 	testRouter.HandleFunc("/api/books", testHandler.GetBooksHandler).Methods(http.MethodGet)
 	testRouter.HandleFunc("/api/books", testHandler.AddBookHandler).Methods(http.MethodPost)
 	testRouter.HandleFunc("/api/books/{id:[0-9]+}", testHandler.UpdateBookStatusHandler).Methods(http.MethodPut)
@@ -540,5 +543,111 @@ func TestUpdateBookDetailsHandlerPartialUpdate(t *testing.T) {
 		} else if *updatedBook.Comments != *book.Comments {
 			t.Errorf("Book comments should not have changed, expected %s, got %s", *book.Comments, *updatedBook.Comments)
 		}
+	}
+}
+
+// TestGzipCompression tests that responses are properly gzipped when Accept-Encoding is set
+func TestGzipCompression(t *testing.T) {
+	// Add test books with a unique OpenLibraryID to avoid conflicts with other tests
+	book1 := createTestBook(model.StatusWantToRead, "Gzip")
+	_, err := testStore.AddBook(book1)
+	if err != nil {
+		t.Fatalf("Failed to add test book: %v", err)
+	}
+
+	// Test cases
+	testCases := []struct {
+		name           string
+		acceptEncoding string
+		wantGzipped    bool
+	}{
+		{
+			name:           "Accepts gzip",
+			acceptEncoding: "gzip",
+			wantGzipped:    true,
+		},
+		{
+			name:           "Does not accept gzip",
+			acceptEncoding: "",
+			wantGzipped:    false,
+		},
+		{
+			name:           "Accepts multiple encodings",
+			acceptEncoding: "gzip, deflate, br",
+			wantGzipped:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a request to pass to our handler
+			req, err := http.NewRequest("GET", "/api/books", nil)
+			if err != nil {
+				t.Fatalf("Could not create request: %v", err)
+			}
+			if tc.acceptEncoding != "" {
+				req.Header.Set("Accept-Encoding", tc.acceptEncoding)
+			}
+
+			// Create a ResponseRecorder to record the response
+			rr := httptest.NewRecorder()
+
+			// Call the handler
+			testRouter.ServeHTTP(rr, req)
+
+			// Check the status code
+			if status := rr.Code; status != http.StatusOK {
+				t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+			}
+
+			// Check Content-Encoding header
+			contentEncoding := rr.Header().Get("Content-Encoding")
+			if tc.wantGzipped {
+				if contentEncoding != "gzip" {
+					t.Errorf("Expected Content-Encoding: gzip, got %s", contentEncoding)
+				}
+
+				// Verify the response is actually gzipped
+				reader, err := gzip.NewReader(bytes.NewReader(rr.Body.Bytes()))
+				if err != nil {
+					t.Fatalf("Failed to create gzip reader: %v", err)
+				}
+				defer reader.Close()
+
+				// Try to read the decompressed data
+				decompressed, err := io.ReadAll(reader)
+				if err != nil {
+					t.Fatalf("Failed to decompress response: %v", err)
+				}
+
+				// Verify we can unmarshal the decompressed JSON
+				var books []model.Book
+				if err := json.Unmarshal(decompressed, &books); err != nil {
+					t.Fatalf("Failed to unmarshal decompressed response: %v", err)
+				}
+
+				// We don't check for a specific count because other tests may have added books
+				// Just verify the response can be parsed
+				if len(books) < 1 {
+					t.Errorf("Expected at least one book in decompressed response, got %d", len(books))
+				}
+			} else {
+				if contentEncoding != "" {
+					t.Errorf("Expected no Content-Encoding, got %s", contentEncoding)
+				}
+
+				// Verify the response is not gzipped
+				var books []model.Book
+				if err := json.Unmarshal(rr.Body.Bytes(), &books); err != nil {
+					t.Fatalf("Failed to unmarshal response: %v", err)
+				}
+
+				// We don't check for a specific count because other tests may have added books
+				// Just verify the response can be parsed
+				if len(books) < 1 {
+					t.Errorf("Expected at least one book in response, got %d", len(books))
+				}
+			}
+		})
 	}
 }

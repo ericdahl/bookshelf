@@ -1,6 +1,7 @@
 package api
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/klauspost/compress/gzip"
 )
 
 // LoggingMiddleware logs incoming HTTP requests.
@@ -16,9 +18,9 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		// Use a response writer wrapper if you need to capture status code
 		// For simple logging, this is often sufficient.
-		slog.Debug("HTTP Request started", 
-			"method", r.Method, 
-			"uri", r.RequestURI, 
+		slog.Debug("HTTP Request started",
+			"method", r.Method,
+			"uri", r.RequestURI,
 			"remoteAddr", r.RemoteAddr)
 
 		next.ServeHTTP(w, r) // Call the next handler
@@ -26,19 +28,55 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		// Log after the request is handled
 		// Note: Status code logging requires a response writer wrapper.
 		// For now, just log duration.
-		slog.Info("HTTP Request completed", 
-			"method", r.Method, 
-			"uri", r.RequestURI, 
+		slog.Info("HTTP Request completed",
+			"method", r.Method,
+			"uri", r.RequestURI,
 			"duration", time.Since(start))
 	})
+}
+
+// GzipMiddleware compresses responses using gzip if the client accepts it
+func GzipMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check if client accepts gzip encoding
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Create a gzip writer
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+
+		// Set headers
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Vary", "Accept-Encoding")
+
+		// Create a response writer that writes to the gzip writer
+		gzw := gzipResponseWriter{Writer: gz, ResponseWriter: w}
+
+		// Call the next handler with our gzip response writer
+		next.ServeHTTP(gzw, r)
+	})
+}
+
+// gzipResponseWriter is a custom response writer that writes to a gzip writer
+type gzipResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+func (w gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
 }
 
 // SetupRouter configures the routes for the application.
 func SetupRouter(apiHandler *APIHandler, webDir string) *mux.Router {
 	r := mux.NewRouter()
 
-	// Apply logging middleware to all routes
+	// Apply middlewares to all routes
 	r.Use(LoggingMiddleware)
+	r.Use(GzipMiddleware)
 
 	// API Routes (prefixed with /api)
 	apiRouter := r.PathPrefix("/api").Subrouter()
