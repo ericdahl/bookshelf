@@ -14,6 +14,7 @@ type BookStore interface {
 	GetBooks() ([]model.Book, error)
 	GetBookByID(id int64) (*model.Book, error)
 	UpdateBookStatus(id int64, status model.BookStatus) error
+	UpdateBookType(id int64, bookType model.BookType) error
 	UpdateBookDetails(id int64, rating *int, comments *string, series *string, seriesIndex *int) error
 	DeleteBook(id int64) error
 }
@@ -43,8 +44,8 @@ func (s *SQLiteBookStore) AddBook(book *model.Book) (int64, error) {
 	}
 
 	query := `
-        INSERT INTO books (title, author, open_library_id, isbn, status, rating, comments, cover_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+        INSERT INTO books (title, author, open_library_id, isbn, status, type, rating, comments, cover_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     `
 	slog.Info("SQL: Executing AddBook query",
 		"title", book.Title,
@@ -52,6 +53,7 @@ func (s *SQLiteBookStore) AddBook(book *model.Book) (int64, error) {
 		"openLibraryID", book.OpenLibraryID,
 		"isbn", book.ISBN,
 		"status", book.Status,
+		"type", book.Type,
 		"rating", book.Rating,
 		"comments", book.Comments,
 		"coverURL", book.CoverURL)
@@ -62,7 +64,7 @@ func (s *SQLiteBookStore) AddBook(book *model.Book) (int64, error) {
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(book.Title, book.Author, book.OpenLibraryID, book.ISBN, book.Status, book.Rating, book.Comments, book.CoverURL)
+	res, err := stmt.Exec(book.Title, book.Author, book.OpenLibraryID, book.ISBN, book.Status, book.Type, book.Rating, book.Comments, book.CoverURL)
 	if err != nil {
 		slog.Error("SQL Error: Executing AddBook statement failed", "error", err)
 		// Consider checking for UNIQUE constraint violation specifically
@@ -81,7 +83,7 @@ func (s *SQLiteBookStore) AddBook(book *model.Book) (int64, error) {
 
 // GetBooks retrieves all books from the database.
 func (s *SQLiteBookStore) GetBooks() ([]model.Book, error) {
-	query := `SELECT id, title, author, open_library_id, isbn, status, rating, comments, cover_url, series, series_index FROM books ORDER BY title;`
+	query := `SELECT id, title, author, open_library_id, isbn, status, type, rating, comments, cover_url, series, series_index FROM books ORDER BY title;`
 	slog.Info("SQL: Executing GetBooks query")
 
 	rows, err := s.DB.Query(query)
@@ -101,11 +103,20 @@ func (s *SQLiteBookStore) GetBooks() ([]model.Book, error) {
 		var isbn sql.NullString
 		var series sql.NullString
 		var seriesIndex sql.NullInt64
+		var bookType sql.NullString
 
 		if err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.OpenLibraryID, &isbn, 
-			&book.Status, &rating, &comments, &coverURL, &series, &seriesIndex); err != nil {
+			&book.Status, &bookType, &rating, &comments, &coverURL, &series, &seriesIndex); err != nil {
 			slog.Error("SQL Error: Scanning book row failed", "error", err)
 			return nil, fmt.Errorf("failed to scan book row: %w", err)
+		}
+		
+		// Set type, defaulting to "book" if NULL or invalid
+		if bookType.Valid {
+			book.Type = model.BookType(bookType.String)
+		}
+		if !book.Type.IsValid() {
+			book.Type = model.TypeBook
 		}
 
 		// Convert sql.Null types to pointers
@@ -144,7 +155,7 @@ func (s *SQLiteBookStore) GetBooks() ([]model.Book, error) {
 
 // GetBookByID retrieves a single book by its ID.
 func (s *SQLiteBookStore) GetBookByID(id int64) (*model.Book, error) {
-	query := `SELECT id, title, author, open_library_id, isbn, status, rating, comments, cover_url, series, series_index FROM books WHERE id = ?;`
+	query := `SELECT id, title, author, open_library_id, isbn, status, type, rating, comments, cover_url, series, series_index FROM books WHERE id = ?;`
 	slog.Info("SQL: Executing GetBookByID query", "id", id)
 
 	row := s.DB.QueryRow(query, id)
@@ -156,9 +167,10 @@ func (s *SQLiteBookStore) GetBookByID(id int64) (*model.Book, error) {
 	var isbn sql.NullString
 	var series sql.NullString
 	var seriesIndex sql.NullInt64
+	var bookType sql.NullString
 
 	err := row.Scan(&book.ID, &book.Title, &book.Author, &book.OpenLibraryID, &isbn, 
-		&book.Status, &rating, &comments, &coverURL, &series, &seriesIndex)
+		&book.Status, &bookType, &rating, &comments, &coverURL, &series, &seriesIndex)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			slog.Info("SQL: No book found", "id", id)
@@ -166,6 +178,14 @@ func (s *SQLiteBookStore) GetBookByID(id int64) (*model.Book, error) {
 		}
 		slog.Error("SQL Error: Scanning book row failed", "id", id, "error", err)
 		return nil, fmt.Errorf("failed to scan book row for ID %d: %w", id, err)
+	}
+	
+	// Set type, defaulting to "book" if NULL or invalid
+	if bookType.Valid {
+		book.Type = model.BookType(bookType.String)
+	}
+	if !book.Type.IsValid() {
+		book.Type = model.TypeBook
 	}
 
 	// Convert sql.Null types to pointers
@@ -228,6 +248,43 @@ func (s *SQLiteBookStore) UpdateBookStatus(id int64, status model.BookStatus) er
 	}
 
 	slog.Info("SQL: Successfully updated status for book", "id", id)
+	return nil
+}
+
+// UpdateBookType updates the type of a specific book.
+func (s *SQLiteBookStore) UpdateBookType(id int64, bookType model.BookType) error {
+	if !bookType.IsValid() {
+		return fmt.Errorf("invalid book type provided: %s", bookType)
+	}
+
+	query := `UPDATE books SET type = ? WHERE id = ?;`
+	slog.Info("SQL: Executing UpdateBookType query", "type", bookType, "id", id)
+
+	stmt, err := s.DB.Prepare(query)
+	if err != nil {
+		slog.Error("SQL Error: Preparing UpdateBookType statement failed", "error", err)
+		return fmt.Errorf("failed to prepare update type statement: %w", err)
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(bookType, id)
+	if err != nil {
+		slog.Error("SQL Error: Executing UpdateBookType statement failed", "error", err)
+		return fmt.Errorf("failed to execute update type statement: %w", err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		slog.Error("SQL Error: Failed to get rows affected for UpdateBookType", "error", err)
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		slog.Info("SQL: No book found to update type", "id", id)
+		return fmt.Errorf("book with ID %d not found", id)
+	}
+
+	slog.Info("SQL: Successfully updated type for book", "id", id)
 	return nil
 }
 

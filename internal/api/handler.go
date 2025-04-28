@@ -207,6 +207,49 @@ func (h *APIHandler) UpdateBookStatusHandler(w http.ResponseWriter, r *http.Requ
 	respondWithJSON(w, http.StatusOK, map[string]string{"message": "Book status updated successfully"})
 }
 
+// UpdateBookTypeHandler handles PUT /api/books/{id}/type requests (for book type update).
+func (h *APIHandler) UpdateBookTypeHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr, ok := vars["id"]
+	if !ok {
+		respondWithError(w, http.StatusBadRequest, "Missing book ID")
+		return
+	}
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid book ID format")
+		return
+	}
+
+	var payload struct {
+		Type model.BookType `json:"type"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
+		return
+	}
+
+	if !payload.Type.IsValid() {
+		respondWithError(w, http.StatusBadRequest, "Invalid type value. Must be 'book' or 'audiobook'")
+		return
+	}
+
+	err = h.Store.UpdateBookType(id, payload.Type)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			respondWithError(w, http.StatusNotFound, err.Error())
+		} else {
+			respondWithError(w, http.StatusInternalServerError, "Failed to update book type: "+err.Error())
+		}
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{"message": "Book type updated successfully"})
+}
+
 // UpdateBookDetailsHandler handles PUT /api/books/{id}/details requests (for rating, comments, and series info).
 func (h *APIHandler) UpdateBookDetailsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)

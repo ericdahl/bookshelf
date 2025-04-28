@@ -83,6 +83,7 @@ func SetupRouter(apiHandler *APIHandler, webDir string) *mux.Router {
 	apiRouter.HandleFunc("/books", apiHandler.GetBooksHandler).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/books", apiHandler.AddBookHandler).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/books/{id:[0-9]+}", apiHandler.UpdateBookStatusHandler).Methods(http.MethodPut)          // For status update
+	apiRouter.HandleFunc("/books/{id:[0-9]+}/type", apiHandler.UpdateBookTypeHandler).Methods(http.MethodPut)       // For type update
 	apiRouter.HandleFunc("/books/{id:[0-9]+}/details", apiHandler.UpdateBookDetailsHandler).Methods(http.MethodPut) // For rating/comments
 	apiRouter.HandleFunc("/books/search", apiHandler.SearchBooksHandler).Methods(http.MethodGet)                    // Expects ?q=query
 	apiRouter.HandleFunc("/books/{id:[0-9]+}", apiHandler.DeleteBookHandler).Methods(http.MethodDelete)             // Delete a book

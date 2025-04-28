@@ -62,6 +62,7 @@ func CreateSchema(db *sql.DB) error {
         open_library_id TEXT NOT NULL UNIQUE,
         isbn TEXT,
         status TEXT NOT NULL CHECK(status IN ('Want to Read', 'Currently Reading', 'Read')),
+        type TEXT NOT NULL DEFAULT 'book' CHECK(type IN ('book', 'audiobook')),
         rating INTEGER CHECK(rating IS NULL OR (rating >= 1 AND rating <= 10)),
         comments TEXT,
         cover_url TEXT,

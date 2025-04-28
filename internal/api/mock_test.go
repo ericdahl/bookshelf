@@ -58,6 +58,19 @@ func (m *MockBookStore) UpdateBookStatus(id int64, status model.BookStatus) erro
 	return nil
 }
 
+func (m *MockBookStore) UpdateBookType(id int64, bookType model.BookType) error {
+	if m.UpdateErr != nil {
+		return m.UpdateErr
+	}
+	for i, book := range m.Books {
+		if book.ID == id {
+			m.Books[i].Type = bookType
+			return nil
+		}
+	}
+	return nil
+}
+
 func (m *MockBookStore) UpdateBookDetails(id int64, rating *int, comments *string, series *string, seriesIndex *int) error {
 	if m.UpdateErr != nil {
 		return m.UpdateErr
@@ -102,6 +115,7 @@ func TestGetBooksHandlerWithMock(t *testing.T) {
 				Author:        "Test Author 1",
 				OpenLibraryID: "OL123M",
 				Status:        model.StatusWantToRead,
+				Type:          model.TypeBook,
 				Rating:        &rating,
 				Comments:      &comments,
 				CoverURL:      &coverURL,
@@ -112,6 +126,7 @@ func TestGetBooksHandlerWithMock(t *testing.T) {
 				Author:        "Test Author 2",
 				OpenLibraryID: "OL456M",
 				Status:        model.StatusCurrentlyReading,
+				Type:          model.TypeAudiobook,
 			},
 		},
 	}

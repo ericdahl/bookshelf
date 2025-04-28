@@ -55,6 +55,7 @@ func setupTestAPI() error {
 	testRouter.HandleFunc("/api/books", testHandler.GetBooksHandler).Methods(http.MethodGet)
 	testRouter.HandleFunc("/api/books", testHandler.AddBookHandler).Methods(http.MethodPost)
 	testRouter.HandleFunc("/api/books/{id:[0-9]+}", testHandler.UpdateBookStatusHandler).Methods(http.MethodPut)
+	testRouter.HandleFunc("/api/books/{id:[0-9]+}/type", testHandler.UpdateBookTypeHandler).Methods(http.MethodPut)
 	testRouter.HandleFunc("/api/books/{id:[0-9]+}/details", testHandler.UpdateBookDetailsHandler).Methods(http.MethodPut)
 	testRouter.HandleFunc("/api/books/{id:[0-9]+}", testHandler.DeleteBookHandler).Methods(http.MethodDelete)
 	testRouter.HandleFunc("/api/books/search", testHandler.SearchBooksHandler).Methods(http.MethodGet)
@@ -96,6 +97,7 @@ func createTestBook(status model.BookStatus, suffix string) *model.Book {
 		OpenLibraryID: "OL12345M" + suffix,
 		ISBN:          "9781234567890",
 		Status:        status,
+		Type:          model.TypeBook,
 		Rating:        &rating,
 		Comments:      &comments,
 		CoverURL:      &coverURL,
@@ -390,6 +392,85 @@ func TestAddBookHandlerInvalidInput(t *testing.T) {
 	}
 
 	req, err := http.NewRequest("POST", "/api/books", bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Fatalf("Could not create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	testRouter.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
+	}
+}
+
+// TestUpdateBookTypeHandler tests the PUT /api/books/{id}/type endpoint
+func TestUpdateBookTypeHandler(t *testing.T) {
+	// Add test book
+	book := createTestBook(model.StatusWantToRead, "TypeTest")
+	id, err := testStore.AddBook(book)
+	if err != nil {
+		t.Fatalf("Failed to add test book: %v", err)
+	}
+
+	// Create update payload
+	updateData := map[string]string{
+		"type": string(model.TypeAudiobook),
+	}
+	jsonData, err := json.Marshal(updateData)
+	if err != nil {
+		t.Fatalf("Failed to marshal JSON: %v", err)
+	}
+
+	// Create request
+	req, err := http.NewRequest("PUT", "/api/books/"+itoa(id)+"/type", bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Fatalf("Could not create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Create a ResponseRecorder
+	rr := httptest.NewRecorder()
+
+	// Call the handler
+	testRouter.ServeHTTP(rr, req)
+
+	// Check status code
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v, body: %s", status, http.StatusOK, rr.Body.String())
+	}
+
+	// Verify the type was updated in the database
+	updatedBook, err := testStore.GetBookByID(id)
+	if err != nil {
+		t.Fatalf("Failed to retrieve updated book: %v", err)
+	}
+
+	if updatedBook.Type != model.TypeAudiobook {
+		t.Errorf("Book type not updated, expected %s, got %s", model.TypeAudiobook, updatedBook.Type)
+	}
+}
+
+// TestUpdateBookTypeHandlerInvalidType tests the PUT /api/books/{id}/type endpoint with invalid type
+func TestUpdateBookTypeHandlerInvalidType(t *testing.T) {
+	// Add test book
+	book := createTestBook(model.StatusWantToRead, "InvalidType")
+	id, err := testStore.AddBook(book)
+	if err != nil {
+		t.Fatalf("Failed to add test book: %v", err)
+	}
+
+	// Try to update with invalid type
+	updateData := map[string]string{
+		"type": "InvalidType",
+	}
+	jsonData, err := json.Marshal(updateData)
+	if err != nil {
+		t.Fatalf("Failed to marshal JSON: %v", err)
+	}
+
+	req, err := http.NewRequest("PUT", "/api/books/"+itoa(id)+"/type", bytes.NewBuffer(jsonData))
 	if err != nil {
 		t.Fatalf("Could not create request: %v", err)
 	}
