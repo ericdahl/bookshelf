@@ -1,0 +1,7 @@
+.aider*
+.gitignore
+
+# SQLite database files
+bookshelf.db
+bookshelf.db-shm
+bookshelf.db-wal
