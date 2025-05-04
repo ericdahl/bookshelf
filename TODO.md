@@ -1,0 +1,3 @@
+- [ ] Fix issue with saving book types (audiobook)
+- [ ] add headphones icon if audiobook
+- [ ] redo API to remove the /type and /details endpoints to instead use PUT/PATCH
