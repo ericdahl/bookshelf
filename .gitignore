@@ -11,7 +11,9 @@ bin/
 obj/
 
 # SQLite database files
-*.db
+bookshelf.db
+bookshelf.db-shm
+bookshelf.db-wal
 
 # Go build artifacts
 *.test
@@ -32,3 +34,6 @@ vendor/
 # Environment files
 .env
 .aider*
+
+# for ai-digest
+codebase.md
